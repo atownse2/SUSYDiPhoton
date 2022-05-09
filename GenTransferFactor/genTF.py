@@ -1,62 +1,66 @@
-from ROOT import TCanvas, TFile, TH1F, PyConfig
-from ROOT import gROOT
-import sys
-import numpy as np
-from utils import dR
-from array import array
-from collections import OrderedDict
+from utils import *
 
+head = "/afs/crc.nd.edu/user/a/atownse2/Public/SUSYDiPhoton/CMSSW_10_2_21/src/" 
+
+#dType = "WGJets"
 #dType = "DYJetsToLL_M-50"
-#run = "Summer16v3"
-#rtag = "HT"
-#HLT = 21
+dType = "TTJets"
 
-dType = "WGJets"
-run = "Summer16v3"
-rtag = "PtG"
-HLT = 21
+
+tag = dataDict[dType]["tag"]
+era = dataDict[dType]["era"]
+HLT = dataDict[dType]["HLT"]
+
 
 versiontag = ""
 
-#txtfiledir = "/scratch365/atownse2/SUSYDiPhoton/condor/"
-txtfiledir = "/afs/crc.nd.edu/user/a/atownse2/Public/SUSYDiPhoton/CMSSW_10_2_21/src/samples/"
-
-#outDir = "/scratch365/atownse2/SUSYDiPhoton/fakerate/" + dType + "_" + run + "/"
 outDir = "hists/"
+###I/O
+ntuple_version =  "TreeMakerRandS_skimsv8"
+ntuple_location = "root://cmsxrootd.fnal.gov//store/group/lpcsusyphotons/" + ntuple_version + "/"
 
-outfilename = dType + "_" + run + "_genfakerate_ns" 
+#txtfiledir = "/scratch365/atownse2/SUSYDiPhoton/condor/" #I should make condor work here
+txtfiledir = head + "Samples/"
+txtfile = open(txtfiledir + ntuple_version + "_filelist.txt", "r")
+
+filenames = [ ntuple_location + i[:-1] for i in txtfile if dType in i and tag in i and era in i]
+###
+
+### Some command line parsing to determine which files to run over
+runbatch = len(sys.argv) > 1
+
+if runbatch:
+  batches = int(sys.argv[1])
+  run     = int(sys.argv[2])
+
+  file_batches = np.array_split(filenames, batches)
+
+  filenames = file_batches[run]
+  outDir = "/scratch365/atownse2/SUSYDiPhoton/GenTransferFactor/" + dType + "_" + era + "/"
+
+if not any(filenames):
+  print("No files in batch")
+  quit()
+
+
+print( "Running over " + str(len(filenames)) + " files")
+###
+
+
+###
+outfilename = dType + "_" + era + "_" +  ntuple_version +  "_genTF_ns" 
 
 if versiontag:
   outfilename += "_" + versiontag
+if runbatch:
+  outfilename += "_" + str(run)
 
-txtfile = open(txtfiledir + "skimsforAustin_filelist.txt", "r")
+outfilename += ".root"
 
-print "outfilename : " +  outfilename
-print "outfiledir  : " +  outDir
+print( "outfilename : " +  outfilename)
+print( "outfiledir  : " +  outDir)
+###
 
-
-filenames = ["root://cmsxrootd.fnal.gov//store/group/lpcsusyphotons/skimsforAustin/"+ i[:-1] for i in txtfile if dType in i and rtag in i and run in i]
-
-
-print("Number of files to run over: " + str(len(filenames)))
-
-### Some command line parsing to determine which files to run over
-nBatch = int(sys.argv[1])
-nBatchRun = int(sys.argv[2])
-
-nSize = len(filenames)//nBatch + 1
-nStart = nSize*nBatchRun
-nEnd = nSize*(nBatchRun + 1)
-
-if nEnd > len(filenames):
-  nEnd = len(filenames)
-
-if nStart > len(filenames):
-  print("No more batches")
-  quit()
-
-print("nStart = " + str(nStart))
-print("nEnd = " + str(nEnd))
 
 ###
 
@@ -65,24 +69,7 @@ gROOT.SetBatch()        # don't pop up canvases
 gROOT.SetStyle('Plain') 
 
 
-### Define hist dicts and bins
-ptRangeDict = {"WGJets" :["PtG-40to130", "PtG-130"] ,
-               "DYJetsToLL_M-50": ["100to200","200to400","400to600","600to800","800to1200","1200to2500","2500toInf"],
-               "TTJets_DiLept_TuneCUETP8M1": ["_"]}
 
-varBins = { "pt"    : [80,100,120,150,200,300],
-            "eta"   : np.linspace(-2.4, 2.4, num=24),
-            "njets"  : range(12),
-             "vmult" : [0,4,8,12,14,16,18,20,22,24,28,32,36],
-            "met"   : [0,20,35,50,70,90,110,130,150,150,185,185,250]}
-
-genTypes = ["genEle"]
-
-recoTypes = ["recoPho", "recoEle"]
-
-regions = ["barrel" , "endcap"]
-
-eVars = ["pt", "eta" , "njets" , "met"]
 
 ptRanges = ptRangeDict[dType]
 
@@ -111,11 +98,10 @@ triggerPass2EMCount = 0
 
 
 ##Start Loop over files in batch
-for filename in filenames[nStart:nEnd]:
-  print(filename)
- 
-  f = TFile.Open(filename)
+for filename in filenames:
+
   print("Opening File " + filename )
+  f = TFile.Open(filename)
   t = f.Get('TreeMaker2/PreSelection')
 
   #print(t.ls())
@@ -124,6 +110,9 @@ for filename in filenames[nStart:nEnd]:
     if ptRange in filename:
       ptTag = ptRange
       break
+  
+  if dType == "TTJets":
+    ptTag = "all"
 
   tCounter = f.Get("tcounter")
 
@@ -136,9 +125,6 @@ for filename in filenames[nStart:nEnd]:
     eventCount += 1
 
     if t.TriggerPass[HLT]==1:
-
-      #print("Passes HLT")
-
       triggerPassCount += 1
 
       if len(t.Photons) < 2: 
@@ -190,7 +176,7 @@ for filename in filenames[nStart:nEnd]:
 
           pcdiff = lambda a, b : 100*np.abs(a-b)/np.average([a,b])
 
-          if dR(reco["4vec"], genEle) < 0.03 and pcdiff(reco["pt"], genEle.Pt()) < 20:
+          if deltaR(reco["4vec"], genEle) < 0.03 and pcdiff(reco["pt"], genEle.Pt()) < 20:
             
             if reco["xseed"]: #Electron
               #Fill Hists
@@ -209,24 +195,21 @@ for filename in filenames[nStart:nEnd]:
             break
       
       ###End of if TriggerPass
-    ###End of event loop 
+    ###End of event loop
+  print("Closing File")
   f.Close()
+  
 
 print("Event count = " + str(eventCount))
-print("Trigger Pass count = " + str(triggerPassCount))
-print("Trigger Pass count w/ 2 em objects = " + str(triggerPass2EMCount))
 
 
-
-foutName = outDir + outfilename + "_" + str(nBatchRun) + ".root"
-
-print(foutName)
-
-outFile = TFile.Open(foutName, "RECREATE")
+print("Writing hists to: "+outDir+outfilename)
+outFile = TFile.Open(outDir+outfilename, "RECREATE")
 outFile.cd()
+
 
 ###Write Hists
 for h_name, hist in hists.items():
   hist.Write()
 
-
+outFile.Close()
