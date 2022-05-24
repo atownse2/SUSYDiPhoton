@@ -27,7 +27,7 @@ def get_file_name(dType, era, ntuple_version, script_version, cuts_version, nbat
   return f + ".root" 
 
 ### Define hist dicts and bins
-varBins = { "pt"    : np.linspace(0,400, num = 6),
+varBins = { "pt"    : np.linspace(0,400, num = 32),
             "eta"   : np.linspace(-2.4, 2.4, num=25),
             "njets"  : range(12),
              "vmult" : [0,4,8,12,14,16,18,20,22,24,28,32,36],
@@ -35,7 +35,7 @@ varBins = { "pt"    : np.linspace(0,400, num = 6),
             "nEle" : [0,1],
             "nPho" : [0,1]}
 
-genTypes = ["genEle", "genJet", "genTau", "genPho"]
+genTypes = ["genEle", "genMu", "genTau", "genPho", "genJet"]
 
 recoTypes = ["recoPho", "recoEle"]
 

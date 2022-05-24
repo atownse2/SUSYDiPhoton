@@ -53,14 +53,20 @@ def make_cuts(t, hists, HLT):
       if deltaR(reco["4vec"], genPar) > 0.2 and pcdiff(reco["pt"], genPar.Pt()) > 20:
         continue
 
-      if abs(t.GenParticles_PdgId[iPar]) == 11:
-        genPar_name = "genEle"  
-      elif abs(t.GenParticles_PdgId[iPar]) == 15:
+      #if (pdgid > 22 and pdgid < 25):
+      #  continue
+
+      if pdgid == 11:
+        genPar_name = "genEle"
+      elif pdgid == 13:
+        genPar_name = "genMu"
+      elif pdgid == 15:
         genPar_name = "genTau"
-      elif abs(t.GenParticles_PdgId[iPar]) == 22:
+      elif pdgid == 22:
         genPar_name = "genPho"
       else:
         genPar_name = "genJet"
+
 
       if reco["xseed"]: #Electron
         #Fill Hists
@@ -125,11 +131,18 @@ def make_samscuts(t, hists, HLT):
       if deltaR(reco["4vec"], genPar) > 0.2 and pcdiff(reco["pt"], genPar.Pt()) > 20:
         continue
 
-      if abs(t.GenParticles_PdgId[iPar]) == 11:
-        genPar_name = "genEle"  
-      elif abs(t.GenParticles_PdgId[iPar]) == 15:
+      pdgid = abs(t.GenParticles_PdgId[iPar])
+
+      #if (pdgid > 22 and pdgid < 25):
+      #  continue
+
+      if pdgid == 11:
+        genPar_name = "genEle"
+      elif pdgid == 13:
+        genPar_name = "genMu"
+      elif pdgid == 15:
         genPar_name = "genTau"
-      elif abs(t.GenParticles_PdgId[iPar]) == 22:
+      elif pdgid == 22:
         genPar_name = "genPho"
       else:
         genPar_name = "genJet"
