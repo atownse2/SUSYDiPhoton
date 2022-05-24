@@ -23,7 +23,7 @@ HLT = dataDict[dType]["HLT"]
 
 
 #version = "default"
-cuts_version = "samscuts"
+cuts_version = "samscuts_052422v2"
 
 
 outDir = "hists/"
