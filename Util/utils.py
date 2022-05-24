@@ -12,6 +12,8 @@ def load_obj(name ):
         return pickle.load(f)
 
 
+
+
 def fakerate(eeSig, eeSigError, egSig, egSigError):
   fakerate = egSig/eeSig
 
@@ -35,7 +37,7 @@ def fakerate2(eeSig, eeSigError, egSig, egSigError):
 
 
 ### Utility functions
-def dR(photon,jet):
+def deltaR(photon,jet):
 
   return Math.VectorUtil.DeltaR(photon, jet)
   """

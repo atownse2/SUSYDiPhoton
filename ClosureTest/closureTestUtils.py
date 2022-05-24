@@ -1,4 +1,4 @@
-from ROOT import TH1F
+from ROOT import TH1F, Math
 from array import array
 import sys
 import numpy as np
@@ -67,3 +67,5 @@ def drawOverflow(h):
 
   return htmp
 
+def deltaR(photon,jet):
+  return Math.VectorUtil.DeltaR(photon, jet)

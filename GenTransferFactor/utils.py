@@ -1,13 +1,15 @@
 import numpy as np
 import pickle
-import sys
+
 
 from ROOT import TH1F, TFile, Math, TCanvas, TLegend, TRatioPlot, gStyle, gROOT 
 from collections import OrderedDict
 from array import array
 
+
+
 dataDict = {"WGJets": {"era": "Summer16v3",
-                       "tag": "PtG",
+                       "tag": "",
                        "HLT": 21},
             "TTJets": {"era": "Summer16v3",
                        "tag": "",
@@ -16,62 +18,37 @@ dataDict = {"WGJets": {"era": "Summer16v3",
                        "tag": "HT",
                        "HLT": 21}}
 
+def get_file_name(dType, era, ntuple_version, script_version, cuts_version, nbatch=None):
+  f = dType + "_" + era + "_" + ntuple_version + "_" + script_version + "_" + cuts_version
+
+  if nbatch is not None:
+    f += "_" + str(nbatch)
+
+  return f + ".root" 
 
 ### Define hist dicts and bins
-ptRangeDict = {"WGJets" :["PtG-40to130", "PtG-130"] ,
-               "DYJetsToLL_M-50": ["100to200","200to400","400to600","600to800","800to1200","1200to2500","2500toInf"],
-               "TTJets": ["all"]}
-
-varBins = { "pt"    : np.linspace(0,400, num = 5),
-            "eta"   : np.linspace(-2.4, 2.4, num=24),
+varBins = { "pt"    : np.linspace(0,400, num = 6),
+            "eta"   : np.linspace(-2.4, 2.4, num=25),
             "njets"  : range(12),
              "vmult" : [0,4,8,12,14,16,18,20,22,24,28,32,36],
-            "met"   : [0,20,35,50,70,90,110,130,150,150,185,185,250]}
+            "met"   : [0,20,35,50,70,90,110,130,150,150,185,185,250],
+            "nEle" : [0,1],
+            "nPho" : [0,1]}
 
-genTypes = ["genEle"]
+genTypes = ["genEle", "genJet", "genTau", "genPho"]
 
 recoTypes = ["recoPho", "recoEle"]
 
 regions = ["barrel" , "endcap"]
 
-eVars = ["pt", "eta" , "njets" , "met"]
+eVars = ["pt", "eta" , "njets" , "met", "nEle", "nPho"]
 
-def getHistName(genType, recoType, region, var, ptRange = False):
+def getHistName(genType, recoType, region, var):
   histName = genType + "_" + recoType + "_" + region + "_" + var
-
-  if ptRange:
-    histName += "_" + ptRange
-
   return histName
 
-
 def init_hists(dType):
-  ptRanges = ptRangeDict[dType]
-
   hists = OrderedDict()
-
-  for ptRange in ptRanges:
-    hists["hEvents_"+ptRange] = TH1F("hEvents_"+ptRange, "hEvents_"+ptRange, 1, 0, 1 ) 
-
-    for genType in genTypes:
-      for recoType in recoTypes:
-        for region in regions:
-          for eVar in eVars:
-            h_name = getHistName(ptRange, genType, recoType, region, eVar)
-            h_bins = array("d", varBins[eVar])
-            hists[h_name] = TH1F( h_name, h_name, len(h_bins)-1, h_bins)
-
-  return hists
-
-def load_scaled_hists(dType, filename):
-
-  f = TFile.Open(filename)
-
-  ptRanges = ptRangeDict[dType]
-
-  hists = OrderedDict()
-
-  hEvents = { ptRange : f.Get("hEvents_"+ptRange).GetEntries() for ptRange in ptRanges }
 
   for genType in genTypes:
     for recoType in recoTypes:
@@ -79,16 +56,28 @@ def load_scaled_hists(dType, filename):
         for eVar in eVars:
           h_name = getHistName(genType, recoType, region, eVar)
           h_bins = array("d", varBins[eVar])
-          h = TH1F( h_name, h_name, len(h_bins)-1, h_bins)
-          h.SetDirectory(0) #Write to RAM
-          for ptRange in ptRanges:
-            h_name_pt = getHistName(genType, recoType, region, eVar, ptRange)
-            h_pt = f.Get(h_name_pt)
-            print( h_name_pt )
-            h_pt.Scale(2.5/hEvents[ptRange])
-            h.Add(h_pt) 
-          hists[h_name] = h
-  f.Close()
+          hists[h_name] = TH1F( h_name, h_name, len(h_bins)-1, h_bins)
+
+  return hists
+
+
+def load_hists(dType, filename):
+  f = TFile.Open(filename)
+
+  if not f:
+    print("File unable to be opened: " + filename)
+  else:
+    hists = OrderedDict()
+    for genType in genTypes:
+      for recoType in recoTypes:
+        for region in regions:
+          for eVar in eVars:
+            h_name = getHistName(genType, recoType, region, eVar)
+            h = f.Get(h_name)
+            h.SetDirectory(0) #Write to RAM
+            hists[h_name] = h
+
+  #f.Close()
   return hists
 
 
@@ -100,6 +89,19 @@ def load_obj(name ):
     with open('obj/' + name + '.pkl', 'rb') as f:
         return pickle.load(f)
 
+
+def pcdiff(a,b):
+  return 100*np.abs(a-b)/(a+b)/2
+
+
+def ratioPoissonError(A, B):
+    A_err = np.sqrt(A)
+    B_err = np.sqrt(B)
+    
+    ep1 = (A_err/B)**2
+    ep2 = (A*B_err/B**2)**2
+    
+    return np.sqrt( ep1 + ep2 )
 
 
 
