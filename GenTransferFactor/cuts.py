@@ -50,7 +50,10 @@ def make_cuts(t, hists, HLT):
       if genPar.Pt() < 10:
         continue
 
-      if deltaR(reco["4vec"], genPar) > 0.2 and pcdiff(reco["pt"], genPar.Pt()) > 20:
+      #if deltaR(reco["4vec"], genPar) > 0.2 and pcdiff(reco["pt"], genPar.Pt()) > 20:
+      #  continue
+
+      if deltaR(reco["4vec"], genPar) > 0.2 :
         continue
 
       #if (pdgid > 22 and pdgid < 25):
@@ -128,7 +131,10 @@ def make_samscuts(t, hists, HLT):
       if genPar.Pt() < 10:
         continue
 
-      if deltaR(reco["4vec"], genPar) > 0.2 and pcdiff(reco["pt"], genPar.Pt()) > 20:
+      #if deltaR(reco["4vec"], genPar) > 0.2 and pcdiff(reco["pt"], genPar.Pt()) > 20:
+      #  continue
+
+      if deltaR(reco["4vec"], genPar) > 0.2:
         continue
 
       pdgid = abs(t.GenParticles_PdgId[iPar])
