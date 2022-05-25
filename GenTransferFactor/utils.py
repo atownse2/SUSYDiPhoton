@@ -47,16 +47,27 @@ def get_hist_name(genType, recoType, region, var):
   histName = genType + "_" + recoType + "_" + region + "_" + var
   return histName
 
+def get_hist_name_1(genType, region, var):
+  return genType + "_" + region + "_" + var
+
+
 def init_hists(dType):
   hist_dict = OrderedDict()
 
-  for genType in genTypes:
-    for recoType in recoTypes:
-      for region in regions:
-        for eVar in eVars:
+  for recoType in recoTypes:
+    for region in regions:
+      for eVar in eVars:
+        for genType in genTypes:
           h_name = get_hist_name(genType, recoType, region, eVar)
           h_bins = array("d", varBins[eVar])
           hist_dict[h_name] = TH1F( h_name, h_name, len(h_bins)-1, h_bins)
+
+  for region in regions:
+    for eVar in eVars:
+      for genType in genTypes:
+        h_name = get_hist_name_1(genType, region, eVar)
+        h_bins = array("d", varBins[eVar])
+        hist_dict[h_name] = TH1F( h_name, h_name, len(h_bins)-1, h_bins)
 
   return hist_dict
 
@@ -64,20 +75,34 @@ def init_hists(dType):
 def load_hists(dType, filename):
   f = TFile.Open(filename)
 
+  #for key in f.GetListOfKeys():
+  #  print(key)
+
   if not f:
     print("File unable to be opened: " + filename)
-  else:
-    hists = OrderedDict()
-    for genType in genTypes:
-      for recoType in recoTypes:
-        for region in regions:
-          for eVar in eVars:
-            h_name = get_hist_name(genType, recoType, region, eVar)
-            h = f.Get(h_name)
-            h.SetDirectory(0) #Write to RAM
-            hists[h_name] = h
+    quit()
 
-  #f.Close()
+  hists = OrderedDict()
+  for genType in genTypes:
+    for recoType in recoTypes:
+      for region in regions:
+        for eVar in eVars:
+          h_name = get_hist_name(genType, recoType, region, eVar)
+          h = f.Get(h_name)
+          h.SetDirectory(0) #Write to RAM
+          hists[h_name] = h
+
+  """
+  for region in regions:
+    for eVar in eVars:
+      for genType in genTypes:
+        h_name = get_hist_name_1(genType, region, eVar)
+        h = f.Get(h_name)
+        h.SetDirectory(0) #Write to RAM
+        hists[h_name] = h
+  """
+
+  f.Close()
   return hists
 
 

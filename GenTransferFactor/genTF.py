@@ -20,12 +20,12 @@ tag = dataDict[dType]["tag"]
 era = dataDict[dType]["era"]
 HLT = dataDict[dType]["HLT"]
 
-version = "052522v3"
+version = "052522v4"
 
 outDir = "hists/"
 ###I/O
-#ntuple_version =  "TreeMakerRandS_skimsv8"
-ntuple_version = "TreeMaker"
+ntuple_version =  "TreeMakerRandS_skimsv8"
+#ntuple_version = "TreeMaker"
 
 ntuple_location = "root://cmsxrootd.fnal.gov//store/group/lpcsusyphotons/" + ntuple_version + "/"
 
@@ -90,7 +90,10 @@ for filename in filenames:
                 "4vec"  : t.Photons[i] , 
                 "xseed" : bool(t.Photons_hasPixelSeed[i]),
                 "barrel": t.Photons_isEB[i],
-                "index" : i} for i in range(len(t.Photons)) if t.Photons[i].Pt() > 30 and abs(t.Photons[i].Eta()) < 2.4 and t.Photons_fullID[i]]
+                "index" : i} for i in range(len(t.Photons)) if t.Photons[i].Pt() > 70 and abs(t.Photons[i].Eta()) < 2.4 and t.Photons_fullID[i]]
+
+    if len(EMpass) < 2:
+      continue
 
     em = sorted( EMpass, key = lambda i: i["pt"], reverse=True) #Highest Pt Objects are first
 
@@ -119,19 +122,15 @@ for filename in filenames:
       else:
         region = "endcap"
 
+      genPar_name = "genJet"
       for iPar, genPar in enumerate(t.GenParticles):
         if genPar.Pt() < 10:
           continue
 
-        #if deltaR(reco["4vec"], genPar) > 0.2 or pcdiff(reco["pt"], genPar.Pt()) > 20:
-        #  continue
-
-        if deltaR(reco["4vec"], genPar) > 0.2:
+        if deltaR(reco["4vec"], genPar) > 0.2 or pcdiff(reco["pt"], genPar.Pt()) > 20:
           continue
 
         pdgid = abs(t.GenParticles_PdgId[iPar])
-
-        #if (pdgid > 22 and pdgid < 25):
 
         if pdgid == 11:
           genPar_name = "genEle"
@@ -141,24 +140,24 @@ for filename in filenames:
           genPar_name = "genTau"
         elif pdgid == 22:
           genPar_name = "genPho"
-        else:
-          genPar_name = "genJet"
 
-        if reco["xseed"]: #Electron
-          #Fill Hists
-          hists[get_hist_name(genPar_name, "recoEle", region, "pt" )].Fill(reco["4vec"].Pt() , w)
-          hists[get_hist_name(genPar_name, "recoEle", region, "eta")].Fill(reco["4vec"].Eta(), w)
-          hists[get_hist_name(genPar_name, "recoEle", region, "njets")].Fill(njets, w)
-          hists[get_hist_name(genPar_name, "recoEle", region, "met")].Fill(t.MET, w)          
-          hists[get_hist_name(genPar_name, "recoEle", region, "nEle")].Fill(0, w)
+        break
 
-        else: #Reco Photon
-          #Fill Hists
-          hists[get_hist_name(genPar_name, "recoPho", region, "pt" )].Fill(reco["4vec"].Pt() , w)
-          hists[get_hist_name(genPar_name, "recoPho", region, "eta")].Fill(reco["4vec"].Eta(), w)
-          hists[get_hist_name(genPar_name, "recoPho", region, "njets")].Fill(njets, w)
-          hists[get_hist_name(genPar_name, "recoPho", region, "met")].Fill(t.MET, w)
-          hists[get_hist_name(genPar_name, "recoPho", region, "nPho")].Fill(0, w)
+      if reco["xseed"]: #Electron
+        #Fill Hists
+        hists[get_hist_name(genPar_name, "recoEle", region, "pt" )].Fill(reco["4vec"].Pt() , w)
+        hists[get_hist_name(genPar_name, "recoEle", region, "eta")].Fill(reco["4vec"].Eta(), w)
+        hists[get_hist_name(genPar_name, "recoEle", region, "njets")].Fill(njets, w)
+        hists[get_hist_name(genPar_name, "recoEle", region, "met")].Fill(t.MET, w)          
+        hists[get_hist_name(genPar_name, "recoEle", region, "nEle")].Fill(0, w)
+
+      else: #Reco Photon
+        #Fill Hists
+        hists[get_hist_name(genPar_name, "recoPho", region, "pt" )].Fill(reco["4vec"].Pt() , w)
+        hists[get_hist_name(genPar_name, "recoPho", region, "eta")].Fill(reco["4vec"].Eta(), w)
+        hists[get_hist_name(genPar_name, "recoPho", region, "njets")].Fill(njets, w)
+        hists[get_hist_name(genPar_name, "recoPho", region, "met")].Fill(t.MET, w)
+        hists[get_hist_name(genPar_name, "recoPho", region, "nPho")].Fill(0, w)
 
   print("Closing File")
   f.Close()

@@ -1,6 +1,25 @@
 Record version changes here:
 
+052522v4:
+  
+  Changes:
+  -Changed cuts to make more like diphoton cuts
+  - 70 GeV for recoPhotons
+  - At least 2 recoPhotons in event
+  - Using skims
+  - Reco Objects not matched to a gen Ele, Mu, Tau, or Pho are considered Jets
 
+
+052522v3:
+
+  Changes:
+  -Testing without pt cut in matching criteria.
+
+
+052522v2:
+
+  Changes:
+  -Found a bug, fixed. Base version
 
 052522v1:
 

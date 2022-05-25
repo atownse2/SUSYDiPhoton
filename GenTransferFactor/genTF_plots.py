@@ -20,7 +20,7 @@ era = "Summer16v3"
 ntuple_version = "TreeMaker"
 #ntuple_version = "TreeMakerRandS_skimsv8"
 
-version = "052422v1"
+version = "052522v2"
 #version_tag = None
 
 fin_name = fdir + get_file_name(dType, era, ntuple_version, "genTF", version)
@@ -35,7 +35,7 @@ hists = load_hists(dType, fin_name)
 # Print out nPho
 recoType = "recoPho"
 region = "barrel"
-eVar = "nPho"
+eVar = "nEle"
 
 print("version: " + version)
 print("genType" + ": " + eVar )
