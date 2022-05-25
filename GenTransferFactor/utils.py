@@ -18,8 +18,8 @@ dataDict = {"WGJets": {"era": "Summer16v3",
                        "tag": "HT",
                        "HLT": 21}}
 
-def get_file_name(dType, era, ntuple_version, script_version, cuts_version, nbatch=None):
-  f = dType + "_" + era + "_" + ntuple_version + "_" + script_version + "_" + cuts_version
+def get_file_name(dType, era, ntuple_version, script_version, git_version, nbatch=None):
+  f = dType + "_" + era + "_" + ntuple_version + "_" + script_version + "_" + git_version
 
   if nbatch is not None:
     f += "_" + str(nbatch)
@@ -43,22 +43,22 @@ regions = ["barrel" , "endcap"]
 
 eVars = ["pt", "eta" , "njets" , "met", "nEle", "nPho"]
 
-def getHistName(genType, recoType, region, var):
+def get_hist_name(genType, recoType, region, var):
   histName = genType + "_" + recoType + "_" + region + "_" + var
   return histName
 
 def init_hists(dType):
-  hists = OrderedDict()
+  hist_dict = OrderedDict()
 
   for genType in genTypes:
     for recoType in recoTypes:
       for region in regions:
         for eVar in eVars:
-          h_name = getHistName(genType, recoType, region, eVar)
+          h_name = get_hist_name(genType, recoType, region, eVar)
           h_bins = array("d", varBins[eVar])
-          hists[h_name] = TH1F( h_name, h_name, len(h_bins)-1, h_bins)
+          hist_dict[h_name] = TH1F( h_name, h_name, len(h_bins)-1, h_bins)
 
-  return hists
+  return hist_dict
 
 
 def load_hists(dType, filename):
@@ -72,7 +72,7 @@ def load_hists(dType, filename):
       for recoType in recoTypes:
         for region in regions:
           for eVar in eVars:
-            h_name = getHistName(genType, recoType, region, eVar)
+            h_name = get_hist_name(genType, recoType, region, eVar)
             h = f.Get(h_name)
             h.SetDirectory(0) #Write to RAM
             hists[h_name] = h

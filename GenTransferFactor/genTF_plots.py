@@ -1,4 +1,5 @@
-from utils import get_file_name, load_hists
+from ROOT import gStyle, gROOT
+from utils import get_file_name, load_hists, get_hist_name, genTypes, recoTypes, regions, eVars
 
 gStyle.SetOptStat(0)
 gROOT.SetBatch()        # don't pop up canvases
@@ -7,36 +8,45 @@ gROOT.SetStyle('Plain')
 fdir = "hists/"
 
 
-dType = "DYJetsToLL_M-50"
-run = "Summer16v3"
+#dType = "DYJetsToLL_M-50"
+#era = "Summer16v3"
 
-#dType = "WGJets"
-#run = "Summer16v3"
+dType = "WGJets"
+era = "Summer16v3"
 
 #dType = "TTJets"
-#run = "Summer16v3"
+#era = "Summer16v3"
 
 ntuple_version = "TreeMaker"
 #ntuple_version = "TreeMakerRandS_skimsv8"
 
-version_tag = "samscuts"
+version = "052422v1"
 #version_tag = None
 
-
-if version_tag is not None:
-  fin_name  = fdir + dType + "_" + run + "_" + ntuple_version + "_genTF_ns_" + version_tag +  ".root"
-else:
-  fin_name  = fdir + dType + "_" + run + "_" + ntuple_version + "_genTF_ns.root"
-
-
+fin_name = fdir + get_file_name(dType, era, ntuple_version, "genTF", version)
 
 print("File In: " + fin_name)
-print("File Out: " + fout_name)
 
 
 # Load hists
 hists = load_hists(dType, fin_name)
 
+
+# Print out nPho
+recoType = "recoPho"
+region = "barrel"
+eVar = "nPho"
+
+print("version: " + version)
+print("genType" + ": " + eVar )
+for genType in genTypes:
+  
+  h = hists[get_hist_name(genType, recoType, region, eVar)]
+
+  print(genType + ": " + str(h.GetEntries()))
+
+
+"""
 for genType in genTypes:
   for region in regions:
     h_nEle = hists[getHistName(genType, "recoEle" , region, "nEle")]
@@ -57,7 +67,7 @@ for genType in genTypes:
       if eVar == "nEle" or eVar == "nPho":
         continue
 
-      title = dType + "_" + run + "_" + ntuple_version + "_"  + genType + "_" + region + "_" + eVar
+      title = dType + "_" + era + "_" + ntuple_version + "_"  + genType + "_" + region + "_" + eVar
   
       if version_tag is not None:
         title +=  "_" + version_tag
@@ -102,6 +112,5 @@ for genType in genTypes:
 
       c.Update()
       c.SaveAs("plots/" + title + ".png")
+"""
 
-
-fout.Close()

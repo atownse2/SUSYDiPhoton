@@ -123,10 +123,7 @@ for filename in filenames:
         if genPar.Pt() < 10:
           continue
 
-        #if deltaR(reco["4vec"], genPar) > 0.2 and pcdiff(reco["pt"], genPar.Pt()) > 20:
-        #  continue
-
-        if deltaR(reco["4vec"], genPar) > 0.2:
+        if deltaR(reco["4vec"], genPar) > 0.2 or pcdiff(reco["pt"], genPar.Pt()) > 20:
           continue
 
         pdgid = abs(t.GenParticles_PdgId[iPar])
