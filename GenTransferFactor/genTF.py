@@ -1,8 +1,7 @@
 import sys
 from ROOT import gROOT, TFile
 import numpy as np
-from utils import dataDict, get_file_name, init_hists
-from cuts import version_mapping
+from utils import dataDict, get_file_name, get_hist_name, init_hists, deltaR, pcdiff
 
 
 ###
@@ -21,10 +20,7 @@ tag = dataDict[dType]["tag"]
 era = dataDict[dType]["era"]
 HLT = dataDict[dType]["HLT"]
 
-
-#version = "default"
-cuts_version = "samscuts_052422v2"
-
+version = "052422v1"
 
 outDir = "hists/"
 ###I/O
@@ -62,9 +58,9 @@ print( "Running over " + str(len(filenames)) + " files")
 
 
 if runbatch:
-  outfilename = get_file_name(dType, era, ntuple_version, "genTF", cuts_version, run )
+  outfilename = get_file_name(dType, era, ntuple_version, "genTF", version, run )
 else:
-  outfilename = get_file_name(dType, era, ntuple_version, "genTF", cuts_version)
+  outfilename = get_file_name(dType, era, ntuple_version, "genTF", version)
 
 
 print( "outfilename : " +  outfilename)
@@ -85,7 +81,85 @@ for filename in filenames:
 
   print("Starting Event Loop")
   for event in t:
-    version_mapping[cuts_version](t, hists, HLT) 
+
+    if t.TriggerPass[HLT] != 1:
+      continue   
+
+    EMpass = [ {"pt"  : t.Photons[i].Pt(),
+                "eta" : t.Photons[i].Eta(),
+                "4vec"  : t.Photons[i] , 
+                "xseed" : bool(t.Photons_hasPixelSeed[i]),
+                "barrel": t.Photons_isEB[i],
+                "index" : i} for i in range(len(t.Photons)) if t.Photons[i].Pt() > 30 and abs(t.Photons[i].Eta()) < 2.4 and t.Photons_fullID[i]]
+
+    em = sorted( EMpass, key = lambda i: i["pt"], reverse=True) #Highest Pt Objects are first
+
+    clean_jets = []
+
+    for jet in [j for j in t.Jets if j.Pt() > 30]:
+      jetPass = True
+      for e in em:
+        if deltaR(jet, e["4vec"]) < 0.4:
+          jetPass = False
+          break
+      if jetPass:
+        clean_jets.append(jet)
+
+    njets = len(clean_jets)
+
+    vmult = t.NVtx
+
+    #w = t.CrossSection*t.puWeight*1000*35.9
+    w = 1
+
+
+    for reco in em:
+      if reco["barrel"]:
+        region = "barrel"
+      else:
+        region = "endcap"
+
+      for iPar, genPar in enumerate(t.GenParticles):
+        if genPar.Pt() < 10:
+          continue
+
+        #if deltaR(reco["4vec"], genPar) > 0.2 and pcdiff(reco["pt"], genPar.Pt()) > 20:
+        #  continue
+
+        if deltaR(reco["4vec"], genPar) > 0.2:
+          continue
+
+        pdgid = abs(t.GenParticles_PdgId[iPar])
+
+        #if (pdgid > 22 and pdgid < 25):
+
+        if pdgid == 11:
+          genPar_name = "genEle"
+        elif pdgid == 13:
+          genPar_name = "genMu"
+        elif pdgid == 15:
+          genPar_name = "genTau"
+        elif pdgid == 22:
+          genPar_name = "genPho"
+        else:
+          genPar_name = "genJet"
+
+        if reco["xseed"]: #Electron
+          #Fill Hists
+          hists[get_hist_name(genPar_name, "recoEle", region, "pt" )].Fill(reco["4vec"].Pt() , w)
+          hists[get_hist_name(genPar_name, "recoEle", region, "eta")].Fill(reco["4vec"].Eta(), w)
+          hists[get_hist_name(genPar_name, "recoEle", region, "njets")].Fill(njets, w)
+          hists[get_hist_name(genPar_name, "recoEle", region, "met")].Fill(t.MET, w)          
+          hists[get_hist_name(genPar_name, "recoEle", region, "nEle")].Fill(0, w)
+
+        else: #Reco Photon
+          #Fill Hists
+          hists[get_hist_name(genPar_name, "recoPho", region, "pt" )].Fill(reco["4vec"].Pt() , w)
+          hists[get_hist_name(genPar_name, "recoPho", region, "eta")].Fill(reco["4vec"].Eta(), w)
+          hists[get_hist_name(genPar_name, "recoPho", region, "njets")].Fill(njets, w)
+          hists[get_hist_name(genPar_name, "recoPho", region, "met")].Fill(t.MET, w)
+          hists[get_hist_name(genPar_name, "recoPho", region, "nPho")].Fill(0, w)
+
   print("Closing File")
   f.Close()
 
