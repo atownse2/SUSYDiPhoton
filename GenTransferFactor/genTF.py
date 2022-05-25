@@ -99,7 +99,7 @@ for filename in filenames:
 
     clean_jets = []
 
-    for jet in [j for j in t.Jets if j.Pt() > 30]:
+    for jet in [j for j in t.Jetsclean if j.Pt() > 30]:
       jetPass = True
       for e in em:
         if deltaR(jet, e["4vec"]) < 0.4:
