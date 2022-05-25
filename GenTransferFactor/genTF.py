@@ -20,7 +20,7 @@ tag = dataDict[dType]["tag"]
 era = dataDict[dType]["era"]
 HLT = dataDict[dType]["HLT"]
 
-version = "052422v1"
+version = "052522v1"
 
 outDir = "hists/"
 ###I/O
