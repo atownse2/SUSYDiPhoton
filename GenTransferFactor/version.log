@@ -1,5 +1,16 @@
 Record version changes here:
 
+052622v1:
+
+  Changes:
+  - Matching only one gen object to reco "photon" choosing whichever has closest pt.
+  Before it would have chosen the first genParticle to be matched to the reco "photon".
+
+052522v5:
+
+  Changes:
+  -Not using pt cut in gen matching criteria
+
 052522v4:
   
   Changes:

@@ -20,7 +20,7 @@ tag = dataDict[dType]["tag"]
 era = dataDict[dType]["era"]
 HLT = dataDict[dType]["HLT"]
 
-version = "052522v4"
+version = "052622v1"
 
 outDir = "hists/"
 ###I/O
@@ -122,13 +122,28 @@ for filename in filenames:
       else:
         region = "endcap"
 
+
       genPar_name = "genJet"
+      pt_pcdiff_min = None
+
       for iPar, genPar in enumerate(t.GenParticles):
         if genPar.Pt() < 10:
           continue
 
-        if deltaR(reco["4vec"], genPar) > 0.2 or pcdiff(reco["pt"], genPar.Pt()) > 20:
+        #if deltaR(reco["4vec"], genPar) > 0.2 or pcdiff(reco["pt"], genPar.Pt()) > 20:
+        #  continue
+
+        if deltaR(reco["4vec"], genPar) > 0.2:
           continue
+        
+        pt_pcdiff = pcdiff(reco["pt"], genPar.Pt())
+
+        if pt_pcdiff_min is None:
+          pt_pcdiff_min = pt_pcdiff
+        elif pt_pcdiff > pt_pcdiff_min:
+          continue
+        
+        pt_pcdiff_min = pt_pcdiff 
 
         pdgid = abs(t.GenParticles_PdgId[iPar])
 
@@ -140,8 +155,9 @@ for filename in filenames:
           genPar_name = "genTau"
         elif pdgid == 22:
           genPar_name = "genPho"
+        else:
+          genPar_name = "genJet"
 
-        break
 
       if reco["xseed"]: #Electron
         #Fill Hists

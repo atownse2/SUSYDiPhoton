@@ -75,32 +75,16 @@ def init_hists(dType):
 def load_hists(dType, filename):
   f = TFile.Open(filename)
 
-  #for key in f.GetListOfKeys():
-  #  print(key)
-
   if not f:
     print("File unable to be opened: " + filename)
     quit()
 
   hists = OrderedDict()
-  for genType in genTypes:
-    for recoType in recoTypes:
-      for region in regions:
-        for eVar in eVars:
-          h_name = get_hist_name(genType, recoType, region, eVar)
-          h = f.Get(h_name)
-          h.SetDirectory(0) #Write to RAM
-          hists[h_name] = h
 
-  """
-  for region in regions:
-    for eVar in eVars:
-      for genType in genTypes:
-        h_name = get_hist_name_1(genType, region, eVar)
-        h = f.Get(h_name)
-        h.SetDirectory(0) #Write to RAM
-        hists[h_name] = h
-  """
+  for key in f.GetListOfKeys():
+    h = key.ReadObj()
+    h.SetDirectory(0) #Write to RAM
+    hists[h.GetName()] = h
 
   f.Close()
   return hists

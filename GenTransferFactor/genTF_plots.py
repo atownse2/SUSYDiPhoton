@@ -1,6 +1,8 @@
 from ROOT import gStyle, gROOT
 from utils import get_file_name, load_hists, get_hist_name, genTypes, recoTypes, regions, eVars
 
+import pandas as pd
+
 gStyle.SetOptStat(0)
 gROOT.SetBatch()        # don't pop up canvases
 gROOT.SetStyle('Plain') 
@@ -17,10 +19,10 @@ era = "Summer16v3"
 #dType = "TTJets"
 #era = "Summer16v3"
 
-ntuple_version = "TreeMaker"
-#ntuple_version = "TreeMakerRandS_skimsv8"
+#ntuple_version = "TreeMaker"
+ntuple_version = "TreeMakerRandS_skimsv8"
 
-version = "052522v2"
+version = "052622v1"
 #version_tag = None
 
 fin_name = fdir + get_file_name(dType, era, ntuple_version, "genTF", version)
@@ -33,18 +35,30 @@ hists = load_hists(dType, fin_name)
 
 
 # Print out nPho
-recoType = "recoPho"
-region = "barrel"
-eVar = "nEle"
-
+print("ntuples: " + ntuple_version)
 print("version: " + version)
-print("genType" + ": " + eVar )
+
+row = []
+for recoType in recoTypes:
+  for region in regions:
+    row.append(recoType+"_"+region) 
+
+df = pd.DataFrame(columns=genTypes, index=row)
+
 for genType in genTypes:
-  
-  h = hists[get_hist_name(genType, recoType, region, eVar)]
+  colDict = {}
+  for region in regions:
 
-  print(genType + ": " + str(h.GetEntries()))
+    h_recoEle = hists[get_hist_name(genType, "recoEle" , region, "nEle")]
+    h_recoPho = hists[get_hist_name(genType, "recoPho" , region, "nPho")]
 
+    colDict["recoEle_"+region] = h_recoEle.GetEntries()
+    colDict["recoPho_"+region] = h_recoPho.GetEntries()
+
+  df[genType] = pd.Series(colDict) 
+
+
+print(df)
 
 """
 for genType in genTypes:
