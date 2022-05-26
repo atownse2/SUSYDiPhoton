@@ -1,7 +1,7 @@
 import sys
 from ROOT import gROOT, TFile
 import numpy as np
-from utils import dataDict, get_file_name, get_hist_name, init_hists, deltaR, pcdiff
+from utils import dataDict, get_file_name, get_hist_name, get_hist_name_1, init_hists, deltaR, pcdiff
 
 
 ###
@@ -115,7 +115,7 @@ for filename in filenames:
     #w = t.CrossSection*t.puWeight*1000*35.9
     w = 1
 
-
+    
     for reco in em:
       if reco["barrel"]:
         region = "barrel"
@@ -176,6 +176,36 @@ for filename in filenames:
         hists[get_hist_name(genPar_name, "recoPho", region, "met")].Fill(t.MET, w)
         hists[get_hist_name(genPar_name, "recoPho", region, "nPho")].Fill(0, w)
         hists[get_hist_name(genPar_name, "recoPho", region, "hadTowOverEM")].Fill(t.Photons_hadTowOverEM[reco["index"]], w)
+
+    
+    for iPar, genPar in enumerate(t.GenParticles):
+      if genPar.Pt() < 10:
+        continue
+
+      pdgid = abs(t.GenParticles_PdgId[iPar])
+
+      if pdgid == 11:
+        genPar_name = "genEle"
+      elif pdgid == 13:
+        genPar_name = "genMu"
+      elif pdgid == 15:
+        genPar_name = "genTau"
+      elif pdgid == 22:
+        genPar_name = "genPho"
+      else:
+        genPar_name = "genJet"
+
+      if abs(genPar.Eta()) < 1.48:
+        region = "barrel"
+      else:
+        region = "endcap" 
+
+      hists[get_hist_name_1(genPar_name, region, "pt" )].Fill(reco["4vec"].Pt() , w)
+      hists[get_hist_name_1(genPar_name, region, "eta")].Fill(reco["4vec"].Eta(), w)
+      hists[get_hist_name_1(genPar_name, region, "njets")].Fill(njets, w)
+      hists[get_hist_name_1(genPar_name, region, "met")].Fill(t.MET, w)          
+      hists[get_hist_name_1(genPar_name, region, "hadTowOverEM")].Fill(t.Photons_hadTowOverEM[reco["index"]], w)
+
 
   print("Closing File")
   f.Close()
