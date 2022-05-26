@@ -165,6 +165,8 @@ for filename in filenames:
         hists[get_hist_name(genPar_name, "recoEle", region, "njets")].Fill(njets, w)
         hists[get_hist_name(genPar_name, "recoEle", region, "met")].Fill(t.MET, w)          
         hists[get_hist_name(genPar_name, "recoEle", region, "nEle")].Fill(0, w)
+        hists[get_hist_name(genPar_name, "recoEle", region, "hadTowOverEM")].Fill(t.Photons_hadTowOverEM[reco["index"]], w)
+
 
       else: #Reco Photon
         #Fill Hists
@@ -173,6 +175,7 @@ for filename in filenames:
         hists[get_hist_name(genPar_name, "recoPho", region, "njets")].Fill(njets, w)
         hists[get_hist_name(genPar_name, "recoPho", region, "met")].Fill(t.MET, w)
         hists[get_hist_name(genPar_name, "recoPho", region, "nPho")].Fill(0, w)
+        hists[get_hist_name(genPar_name, "recoPho", region, "hadTowOverEM")].Fill(t.Photons_hadTowOverEM[reco["index"]], w)
 
   print("Closing File")
   f.Close()

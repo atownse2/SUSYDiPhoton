@@ -33,7 +33,8 @@ varBins = { "pt"    : np.linspace(0,400, num = 32),
              "vmult" : [0,4,8,12,14,16,18,20,22,24,28,32,36],
             "met"   : [0,20,35,50,70,90,110,130,150,150,185,185,250],
             "nEle" : [0,1],
-            "nPho" : [0,1]}
+            "nPho" : [0,1],
+            "hadTowOverEM": np.linspace(0, 0.01, num = 64)}
 
 genTypes = ["genEle", "genMu", "genTau", "genPho", "genJet"]
 
@@ -41,7 +42,7 @@ recoTypes = ["recoPho", "recoEle"]
 
 regions = ["barrel" , "endcap"]
 
-eVars = ["pt", "eta" , "njets" , "met", "nEle", "nPho"]
+eVars = ["pt", "eta" , "njets" , "met", "nEle", "nPho", "hadTowOverEM"]
 
 def get_hist_name(genType, recoType, region, var):
   histName = genType + "_" + recoType + "_" + region + "_" + var
