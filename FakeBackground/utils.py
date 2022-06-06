@@ -2,7 +2,8 @@ import numpy as np
 import pickle
 
 
-from ROOT import TH1F, TFile, Math, TCanvas, TLegend, TRatioPlot, gStyle, gROOT 
+from ROOT import TH1F, TH2I, TFile, Math, TCanvas, TLegend, TRatioPlot, gStyle, gROOT 
+import ROOT as ROOT
 from collections import OrderedDict
 from array import array
 
@@ -27,6 +28,13 @@ def get_file_name(dType, era, ntuple_version, script_version, git_version, nbatc
   return f + ".root" 
 
 ### Define hist dicts and bins
+
+genPar_map = { "genPho" : 0,
+               "genEle" : 1,
+               "genMu"  : 2,
+               "genTau" : 3,
+               "genJet" : 4}
+
 varBins = { "pt"    : np.linspace(0,400, num = 32),
             "eta"   : np.linspace(-2.4, 2.4, num=25),
             "njets"  : range(12),
@@ -34,43 +42,41 @@ varBins = { "pt"    : np.linspace(0,400, num = 32),
             "met"   : [0,20,35,50,70,90,110,130,150,150,185,185,250],
             "nEle" : [0,1],
             "nPho" : [0,1],
-            "hadTowOverEM": np.linspace(0, 0.01, num = 64)}
+            "hadTowOverEM": np.linspace(0, 0.01, num = 64),
+            "dR": np.linspace(0, 2, num = 128)}
 
 genTypes = ["genEle", "genMu", "genTau", "genPho", "genJet"]
 
 recoTypes = ["recoPho", "recoEle"]
 
 regions = ["barrel" , "endcap"]
+regions2 = ["bb", "eb", "be"]
 
-eVars = ["pt", "eta" , "njets" , "met", "nEle", "nPho", "hadTowOverEM"]
+#eVars = ["pt", "eta" , "njets" , "met", "nEle", "nPho", "hadTowOverEM"]
+eVars = ["dR", "hadTowOverEM"]
 
-def get_hist_name(genType, recoType, region, var):
-  histName = genType + "_" + recoType + "_" + region + "_" + var
-  return histName
-
-def get_hist_name_1(genType, region, var):
-  return genType + "_" + region + "_" + var
-
+finalStates = ["ee", "eg", "ge", "gg"]
 
 def init_hists(dType):
   hist_dict = OrderedDict()
 
   hist_dict["num_events"] = TH1F("num_events", "num_events", 1, 0, 1)
 
-  for recoType in recoTypes:
-    for region in regions:
-      for eVar in eVars:
-        for genType in genTypes:
-          h_name = get_hist_name(genType, recoType, region, eVar)
-          h_bins = array("d", varBins[eVar])
-          hist_dict[h_name] = TH1F( h_name, h_name, len(h_bins)-1, h_bins)
+  for region in regions2:
+    for finalState in finalStates:
+      hName = finalState + "_" + region + "_matrix"
+      hist = TH2I(hName, hName, 5, 0, 5, 5, 0, 5) #Lead, Trail
+      hist.SetCanExtend(ROOT.TH1.kAllAxes)
+      hist_dict[hName] = hist
+      
 
-  for region in regions:
-    for eVar in eVars:
-      for genType in genTypes:
-        h_name = get_hist_name_1(genType, region, eVar)
-        h_bins = array("d", varBins[eVar])
-        hist_dict[h_name] = TH1F( h_name, h_name, len(h_bins)-1, h_bins)
+  for recoType in recoTypes:
+    for genType in genTypes:
+      for eVar in eVars:
+        for region in regions:
+          h_bins = array("d", varBins[eVar])
+          hName = recoType + "_" + region + "_noMatch_" + genType + "_" + eVar
+          hist_dict[hName] = TH1F( hName, hName, len(h_bins)-1, h_bins)
 
   return hist_dict
 

@@ -1,7 +1,7 @@
 import sys
 from ROOT import gROOT, TFile
 import numpy as np
-from utils import dataDict, get_file_name, get_hist_name, get_hist_name_1, init_hists, deltaR, pcdiff
+from utils import dataDict, get_file_name, get_hist_name, get_hist_name_1, init_hists, passID, deltaR, pcdiff
 
 
 ###
@@ -20,7 +20,7 @@ tag = dataDict[dType]["tag"]
 era = dataDict[dType]["era"]
 HLT = dataDict[dType]["HLT"]
 
-version = "052622v2"
+version = "052622v3"
 
 outDir = "hists/"
 ###I/O
@@ -90,12 +90,19 @@ for filename in filenames:
                 "4vec"  : t.Photons[i] , 
                 "xseed" : bool(t.Photons_hasPixelSeed[i]),
                 "barrel": t.Photons_isEB[i],
-                "index" : i} for i in range(len(t.Photons)) if t.Photons[i].Pt() > 70 and abs(t.Photons[i].Eta()) < 2.4 and t.Photons_fullID[i]]
+                "index" : i} for i in range(len(t.Photons)) if t.Photons[i].Pt() > 70 and abs(t.Photons[i].Eta()) < 2.4 and passID(era, "tight", t, i)]
+
 
     if len(EMpass) < 2:
       continue
 
     em = sorted( EMpass, key = lambda i: i["pt"], reverse=True) #Highest Pt Objects are first
+
+    lead = em[0]
+    trail = em[1]
+
+    if not any([lead["barrel"], trail["barrel"]]):
+      continue
 
     clean_jets = []
 
@@ -115,6 +122,8 @@ for filename in filenames:
     #w = t.CrossSection*t.puWeight*1000*35.9
     w = 1
 
+    #Count events
+    hists["num_events"].Fill(0)
     
     for reco in em:
       if reco["barrel"]:

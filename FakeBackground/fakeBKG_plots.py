@@ -1,5 +1,5 @@
-from ROOT import gStyle, gROOT
-from utils import get_file_name, load_hists, get_hist_name, genTypes, recoTypes, regions, eVars
+from ROOT import gStyle, gROOT, TCanvas, gPad
+from utils import get_file_name, load_hists, genTypes, recoTypes, regions2, finalStates, eVars
 
 import pandas as pd
 
@@ -22,10 +22,10 @@ era = "Summer16v3"
 #ntuple_version = "TreeMaker"
 ntuple_version = "TreeMakerRandS_skimsv8"
 
-version = "052622v3"
+version = "060622v1"
 #version_tag = None
 
-fin_name = fdir + get_file_name(dType, era, ntuple_version, "genTF", version)
+fin_name = fdir + get_file_name(dType, era, ntuple_version, "fakeBKG", version)
 
 print("File In: " + fin_name)
 
@@ -33,32 +33,40 @@ print("File In: " + fin_name)
 # Load hists
 hists = load_hists(dType, fin_name)
 
+for region in regions2:
+  for fstate in finalStates:
+    h_name = fstate + "_" + region + "_matrix"
+    h = hists[h_name]
 
-# Print out nPho
-print("ntuples: " + ntuple_version)
-print("version: " + version)
+    c = TCanvas(h_name + "_c", h_name + "_c", 1000, 800)
+    c.cd()
 
-row = []
-for recoType in recoTypes:
-  for region in regions:
-    row.append(recoType+"_"+region) 
+    x_title = "lead"
+    y_title = "trail"
 
-df = pd.DataFrame(columns=genTypes, index=row)
+    x_title += "_recoEle" if fstate[0] == "e" else "_recoPho"
+    y_title += "_recoEle" if fstate[1] == "e" else "_recoPho"
 
-for genType in genTypes:
-  colDict = {}
-  for region in regions:
+    x_title += "_barrel" if region[0] == "b" else "_endcap"
+    y_title += "_barrel" if region[1] == "b" else "_endcap"
 
-    h_recoEle = hists[get_hist_name(genType, "recoEle" , region, "nEle")]
-    h_recoPho = hists[get_hist_name(genType, "recoPho" , region, "nPho")]
+    h.GetXaxis().LabelsOption("a")
+    h.GetYaxis().LabelsOption("a")
 
-    colDict["recoEle_"+region] = h_recoEle.GetEntries()
-    colDict["recoPho_"+region] = h_recoPho.GetEntries()
+    h.GetXaxis().SetTitle(x_title)
+    h.GetYaxis().SetTitle(y_title)
 
-  df[genType] = pd.Series(colDict) 
+    h.GetYaxis().SetTitleOffset(2.0)
+    gPad.SetLeftMargin(0.15)
 
+    h.Draw("TEXT")
 
-print(df)
+    fName = dType + "_" + era + "_" + ntuple_version + "_" + version + "_" + h_name
+    h.SetTitle(fName)
+ 
+    c.Update()
+    c.SaveAs("plots/" +fName+".png")
+
 
 """
 for genType in genTypes:

@@ -1,12 +1,17 @@
 Record version changes here:
 
 
+052622v3:
+
+  Changes:
+  -Applied tight id
+
 052622v2:
 
   Changes:
   -Not allowing gen "Jet" particles to be matched to a reco "Photon". Reco "photons" without any other 
-   gen Particles (electron, muon, tau, photon) that pass the delta R cut are considered to be matched to "gen Jets".
- 
+   gen Particles (electron, muon, tau, photon) that pass the delta R cut are considered to be matched to "gen Jets"
+
 
 052622v1:
 
