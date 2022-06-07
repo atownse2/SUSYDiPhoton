@@ -20,7 +20,7 @@ tag = dataDict[dType]["tag"]
 era = dataDict[dType]["era"]
 HLT = dataDict[dType]["HLT"]
 
-version = "060622v1"
+version = "060622v2"
 
 outDir = "hists/"
 ###I/O
@@ -133,13 +133,15 @@ for filename in filenames:
       
       for gen in genParticles:
         gen["dR"] = deltaR(reco["4vec"], gen["genPar"])
-        gen["ptDiff"] = pcdiff(reco["pt"], genPar.Pt())
+        gen["ptDiff"] = pcdiff(reco["pt"], gen["genPar"].Pt())
 
       passdR = [ g for g in genParticles if g["dR"] < 0.2 ]
       
-      if len(passdR) > 0:
-        gen_pt_sort = sorted( passdR, key = lambda i: i["ptDiff"] ) ##Associate match with closest in pt
+      if len(passdR) == 1:
+        reco["gen_match_1"] = passdR[0]["genPar_name"]
 
+      elif len(passdR) > 1:
+        gen_pt_sort = sorted( passdR, key = lambda i: i["ptDiff"] ) ##Associate match with closest in pt
         reco["gen_match_1"] = gen_pt_sort[0]["genPar_name"]
       else:
         reco["gen_match_1"] = "genJet"
