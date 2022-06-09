@@ -22,7 +22,7 @@ era = "Summer16v3"
 #ntuple_version = "TreeMaker"
 ntuple_version = "TreeMakerRandS_skimsv8"
 
-version = "060622v2"
+version = "060822v2"
 #version_tag = None
 
 fin_name = fdir + get_file_name(dType, era, ntuple_version, "fakeBKG", version)

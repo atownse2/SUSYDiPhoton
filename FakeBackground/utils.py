@@ -66,7 +66,11 @@ def init_hists(dType):
     for finalState in finalStates:
       hName = finalState + "_" + region + "_matrix"
       hist = TH2I(hName, hName, 5, 0, 5, 5, 0, 5) #Lead, Trail
-      hist.SetCanExtend(ROOT.TH1.kAllAxes)
+      for i in range(5):
+        hist.GetXaxis().SetBinLabel(i+1, genTypes[i])
+        hist.GetYaxis().SetBinLabel(i+1, genTypes[i])
+
+      #hist.SetCanExtend(ROOT.TH1.kAllAxes)
       hist_dict[hName] = hist
       
 

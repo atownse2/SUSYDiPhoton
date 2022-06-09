@@ -1,5 +1,14 @@
 Record version changes here:
 
+060822v2:
+
+  Changes:
+  -Fixed labels not showing in plotting
+
+060822v1:
+
+  Changes:
+  -Fixed not having IsRandS == 0
 
 060622v1:
   

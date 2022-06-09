@@ -1,4 +1,5 @@
 import sys
+
 from ROOT import gROOT, TFile
 import numpy as np
 from utils import dataDict, get_file_name, init_hists, genPar_map, passID, deltaR, pcdiff
@@ -11,16 +12,16 @@ gROOT.SetStyle('Plain')
 
 head = "/afs/crc.nd.edu/user/a/atownse2/Public/SUSYDiPhoton/CMSSW_10_2_21/src/" 
 
-dType = "WGJets"
+#dType = "WGJets"
 #dType = "DYJetsToLL_M-50"
-#dType = "TTJets"
+dType = "TTJets"
 
 
 tag = dataDict[dType]["tag"]
 era = dataDict[dType]["era"]
 HLT = dataDict[dType]["HLT"]
 
-version = "060622v2"
+version = "060822v2"
 
 outDir = "hists/"
 ###I/O
@@ -82,6 +83,9 @@ for filename in filenames:
   print("Starting Event Loop")
   for event in t:
 
+    if t.IsRandS != 0:
+      continue
+
     if t.TriggerPass[HLT] != 1:
       continue   
 
@@ -90,14 +94,14 @@ for filename in filenames:
                 "4vec"  : t.Photons[i] , 
                 "xseed" : bool(t.Photons_hasPixelSeed[i]),
                 "barrel": t.Photons_isEB[i],
-                "index" : i} for i in range(len(t.Photons)) if t.Photons[i].Pt() > 70 and abs(t.Photons[i].Eta()) < 2.4 and passID(era, "tight", t, i)]
+                "index" : i} for i in range(len(t.Photons)) if t.Photons[i].Pt() > 70 and abs(t.Photons[i].Eta()) < 2.4 and bool(t.Photons_fullID[i]) ] #passID(era, "tight", t, i)
 
 
     if len(EMpass) < 2:
       continue
 
     em = sorted( EMpass, key = lambda i: i["pt"], reverse=True) #Highest Pt Objects are first
-
+    
     lead = em[0]
     trail = em[1]
 
@@ -135,16 +139,20 @@ for filename in filenames:
         gen["dR"] = deltaR(reco["4vec"], gen["genPar"])
         gen["ptDiff"] = pcdiff(reco["pt"], gen["genPar"].Pt())
 
-      passdR = [ g for g in genParticles if g["dR"] < 0.2 ]
-      
+      passdR = [ g for g in genParticles if g["dR"] < 0.4 ]
+ 
+      reco["gen_passdR"] = passdR
+
       if len(passdR) == 1:
-        reco["gen_match_1"] = passdR[0]["genPar_name"]
+        reco["gen_match"] = passdR[0]
+        reco["gen_match_name"] = passdR[0]["genPar_name"]
 
       elif len(passdR) > 1:
         gen_pt_sort = sorted( passdR, key = lambda i: i["ptDiff"] ) ##Associate match with closest in pt
-        reco["gen_match_1"] = gen_pt_sort[0]["genPar_name"]
+        reco["gen_match"] = gen_pt_sort[0]
+        reco["gen_match_name"] = gen_pt_sort[0]["genPar_name"]
       else:
-        reco["gen_match_1"] = "genJet"
+        reco["gen_match_name"] = "genJet"
         
         #For no matches look at dR and hadTowOverEM dist recoType + "_" + region + "_noMatch_" + genType + "_" + eVar
         region = "barrel" if reco["barrel"] else "endcap"
@@ -156,8 +164,8 @@ for filename in filenames:
 
 
 
-    g_lead  = lead["gen_match_1"] 
-    g_trail = trail["gen_match_1"] 
+    g_lead  = lead["gen_match_name"] 
+    g_trail = trail["gen_match_name"] 
 
     if lead["barrel"] and trail["barrel"]:
       region2 = "bb"
@@ -179,7 +187,6 @@ for filename in filenames:
       fstate = "ee"
 
     hists[fstate + "_" + region2 + "_matrix"].Fill(g_lead, g_trail, 1)
-
 
 
   print("Closing File")
