@@ -21,7 +21,7 @@ tag = dataDict[dType]["tag"]
 era = dataDict[dType]["era"]
 HLT = dataDict[dType]["HLT"]
 
-version = "060822v2"
+version = "060922v1"
 
 outDir = "hists/"
 ###I/O
@@ -157,10 +157,12 @@ for filename in filenames:
         #For no matches look at dR and hadTowOverEM dist recoType + "_" + region + "_noMatch_" + genType + "_" + eVar
         region = "barrel" if reco["barrel"] else "endcap"
         recoType = "recoEle" if reco["xseed"] else "recoPho"
-        gen_dR_sort = sorted(genParticles, key = lambda i: i["dR"])
 
-        hists[recoType + "_" + region + "_noMatch_" + gen_dR_sort[0]["genPar_name"] + "_dR"].Fill(gen_dR_sort[0]["dR"])
-        hists[recoType + "_" + region + "_noMatch_" + gen_dR_sort[0]["genPar_name"] + "_hadTowOverEM"].Fill(t.Photons_hadTowOverEM[reco["index"]])
+        if len(genParticles) != 0:
+          gen_dR_sort = sorted(genParticles, key = lambda i: i["dR"])
+
+          hists[recoType + "_" + region + "_noMatch_" + gen_dR_sort[0]["genPar_name"] + "_dR"].Fill(gen_dR_sort[0]["dR"])
+          hists[recoType + "_" + region + "_noMatch_" + gen_dR_sort[0]["genPar_name"] + "_hadTowOverEM"].Fill(t.Photons_hadTowOverEM[reco["index"]])
 
 
 
