@@ -2,8 +2,8 @@ import numpy as np
 import pickle
 
 
-from ROOT import TH1F, TFile, Math, TCanvas, TLegend, TRatioPlot, gStyle, gROOT 
-from collections import OrderedDict
+from ROOT import TH1F, TH2I, TFile, Math, TCanvas, TLegend, TRatioPlot, gStyle, gROOT 
+import ROOT as ROOT
 from array import array
 
 
@@ -18,6 +18,7 @@ dataDict = {"WGJets": {"era": "Summer16v3",
                        "tag": "HT",
                        "HLT": 21}}
 
+
 def get_file_name(dType, era, ntuple_version, script_version, git_version, nbatch=None):
   f = dType + "_" + era + "_" + ntuple_version + "_" + script_version + "_" + git_version
 
@@ -26,62 +27,11 @@ def get_file_name(dType, era, ntuple_version, script_version, git_version, nbatc
 
   return f + ".root" 
 
-### Define hist dicts and bins
-varBins = { "pt"    : np.linspace(0,400, num = 32),
-            "eta"   : np.linspace(-2.4, 2.4, num=25),
-            "njets"  : range(12),
-             "vmult" : [0,4,8,12,14,16,18,20,22,24,28,32,36],
-            "met"   : [0,20,35,50,70,90,110,130,150,150,185,185,250],
-            "nEle" : [0,1],
-            "nPho" : [0,1],
-            "hadTowOverEM": np.linspace(0, 0.01, num = 64)}
-
-recoTypes = ["recoPho", "recoEle"]
-
-regions = ["barrel" , "endcap"]
-
-eVars = ["pt", "eta" , "njets" , "met", "nEle", "nPho", "hadTowOverEM"]
-
-def get_hist_name(recoType, region, var):
-  histName = recoType + "_" + region + "_" + var
-  return histName
-
-def get_hist_name_1(genType, region, var):
-  return genType + "_" + region + "_" + var
-
-
-def init_hists(dType):
-  hist_dict = OrderedDict()
-
-  hist_dict["num_events"] = TH1F("num_events", "num_events", 1, 0, 1)
-
-  for recoType in recoTypes:
-    for region in regions:
-      for eVar in eVars:
-        h_name = get_hist_name(recoType, region, eVar)
-        h_bins = array("d", varBins[eVar])
-        hist_dict[h_name] = TH1F( h_name, h_name, len(h_bins)-1, h_bins)
-
-  return hist_dict
-
-
-def load_hists(dType, filename):
-  f = TFile.Open(filename)
-
-  if not f:
-    print("File unable to be opened: " + filename)
-    quit()
-
-  hists = OrderedDict()
-
-  for key in f.GetListOfKeys():
-    h = key.ReadObj()
-    h.SetDirectory(0) #Write to RAM
-    hists[h.GetName()] = h
-
-  f.Close()
-  return hists
-
+def l2b(l):
+  b = []
+  for i in range(len(l)-1):
+    b.append((l[i],l[i+1]))
+  return b
 
 def save_obj(obj, name ):
     with open('obj/'+ name + '.pkl', 'wb') as f:
@@ -179,41 +129,31 @@ def passID( era, ID, t, ipho):
 
 
 def transferFactor(eeSig, eeSigError, egSig, egSigError):
-  fakerate = egSig/eeSig
+  tf = egSig/eeSig
 
   EPeg = 1/(eeSig)
   EPee = egSig/((eeSig**2))
 
   error = np.sqrt((EPeg*egSigError)**2 + (EPee*eeSigError)**2)
 
-  return fakerate, error
+  return tf, error
 
 def transferFactor2(eeSig, eeSigError, egSig, egSigError):
-  fakerate = 0.5*egSig/eeSig
+  tf = 0.5*egSig/eeSig
 
   EPeg = 1/(2*eeSig)
   EPee = egSig/(2*(eeSig**2))
 
   error = np.sqrt((EPeg*egSigError)**2 + (EPee*eeSigError)**2)
 
-  return fakerate, error
+  return tf, error
 
 
 
 ### Utility functions
 def deltaR(photon,jet):
-
   return Math.VectorUtil.DeltaR(photon, jet)
-  """
-  deltaPhi = abs((photon.Phi() - jet.Phi()))
-  if deltaPhi > np.pi : 
-    deltaPhi = 2*np.pi - deltaPhi
 
-  deltaPhi2 = deltaPhi**2
-  deltaEta2 = (photon.Eta() - jet.Eta())**2
-  deltaR = np.sqrt(deltaPhi2 + deltaEta2)
-  return deltaR
-  """
 
 def getBDTbin(bdt_val):
   if bdt_val < -0.13:

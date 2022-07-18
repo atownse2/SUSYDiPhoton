@@ -12,9 +12,9 @@ gROOT.SetStyle('Plain')
 
 head = "/afs/crc.nd.edu/user/a/atownse2/Public/SUSYDiPhoton/CMSSW_10_2_21/src/" 
 
-#dType = "WGJets"
+dType = "WGJets"
 #dType = "DYJetsToLL_M-50"
-dType = "TTJets"
+#dType = "TTJets"
 
 
 tag = dataDict[dType]["tag"]

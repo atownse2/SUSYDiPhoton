@@ -1,13 +1,15 @@
 from ROOT import TCanvas, TFile, TH1F, PyConfig, TLegend, TRatioPlot
 from ROOT import gROOT
 
-from collections import OrderedDict
-from closureTestUtils import *
+from utils import *
+from hists import *
 
 gROOT.SetBatch()        # don't pop up canvases
 gROOT.SetStyle('Plain') 
 
 d = "/afs/crc.nd.edu/user/a/atownse2/Public/SUSYDiPhoton/CMSSW_10_2_21/src/closure/"
+
+### Data Type
 
 dType = "WGJets"
 #dType = "DYJetsToLL_M-50"
@@ -17,71 +19,23 @@ dType = "WGJets"
 run = "Summer16v3"
 
 
-fin = TFile.Open("hists/"+ dType + "_" + run + "_closure.root")
+###
+version = "071822v2"
 
-if not fin:
-  print("File not opened")
-  quit()
+fin_dir = "hists/"
+###I/O
+#ntuple_version =  "TreeMakerRandS_skimsv8"
+ntuple_version = "skimsforAustin"
+fin_name = get_file_name(dType, run, ntuple_version, "cTest", version)
 
-##Format hist Dict structure
-hTypes = ["DiEMpt", "met", "met_lowBDT", "met_medBDT", "met_highBDT", "leadpt", "trailpt", "leadeta", "traileta"]
 
-selections = ["eg", "gg"]
-
-regions = ["barrel" , "endcap"]
-
-tags = ["tagHpt" , "tagLpt"]
-
-histDict = OrderedDict()
-
-ptRanges = ptRangeDict[dType]
-
-#getHistName(sel, hType, ptRange, region = False, bdt = False):
-# Load/Add/Scale Hists
-for hType in hTypes:
-  for varName, b in varBins.items():
-    if varName in hType:
-      bins = b
-      break
-
-  for sel in selections:
-    hName = sel + "_" + hType
-
-    if sel == "eg":
-      for region in regions:
-        for tag in tags:
-          hName_region_tag = hName + "_" + region + "_" + tag
-          h_region_tag = TH1F(hName_region_tag, hName_region_tag, len(bins)-1, bins)
-
-          for ptRange in ptRanges:
-            hEvents = fin.Get("hEvents_" + ptRange)
-            hName_ptRange = getHistName("eg" , hType, ptRange, region, ptTag=tag)
-            h_ptRange = fin.Get(hName_ptRange)
-
-            h_ptRange.Scale(1/hEvents.GetEntries())
-            h_region_tag.Add(h_ptRange)
-
-          histDict[hName_region_tag] = h_region_tag
-
-    else:
-      h = TH1F(hName, hName, len(bins)-1, bins)
-
-      for ptRange in ptRanges:
-        hEvents = fin.Get("hEvents_" + ptRange)
-        hName_ptRange = getHistName(sel, hType, ptRange)
-        h_ptRange = fin.Get(hName_ptRange)
-        h_ptRange.Scale(1/hEvents.GetEntries())
-        h.Add(h_ptRange)
-
-      histDict[hName] = h
-
+### Load and scale hists
+load_hists(dType, fin_dir+fin_name)
+scale_hists(dType)
 
 ##Drawing pt2 test
 for hType in hTypes:
-  for varName, b in varBins.items():
-    if varName in hType:
-      bins = b
-      break
+  bins = get_bins(hType)
 
   c = TCanvas( hType, hType, 800, 800)
 
@@ -92,17 +46,17 @@ for hType in hTypes:
   h_gg_name = "gg_" + hType
   h_eg_name = "eg_" + hType
 
-  h_gg = drawOverflow(histDict[h_gg_name])
+  h_gg = scaled_hists[h_gg_name]
 
   h_eg = TH1F(h_eg_name, h_eg_name, len(bins)-1, bins)
 
   for region in regions:
-    for tag in tags:
-      tf = 4*fakerateDict[run][region][tag][0]
-      tf_plus_e = 4*fakerateDict[run][region][tag][0] + 4*fakerateDict[run][region][tag][1]
+    for tag in ptTags:
+      tf = fakerateDict[run][region][tag][0]
+      tf_plus_e = fakerateDict[run][region][tag][0] + fakerateDict[run][region][tag][1]
 
       hName_region_tag = h_eg_name + "_" + region + "_" + tag
-      h_region_tag = histDict[hName_region_tag]
+      h_region_tag = scaled_hists[hName_region_tag]
       n_bins = h_region_tag.GetNbinsX()
 
       for ibin in range(n_bins+2): #Use Fakerate error to set error bars including under/overflow
@@ -118,6 +72,7 @@ for hType in hTypes:
 
       h_eg.Add(h_region_tag)
 
+  h_gg = drawOverflow(h_gg)
   h_eg = drawOverflow(h_eg)
 
   h_gg.SetTitle(dType+hType)
@@ -157,16 +112,15 @@ for hType in hTypes:
   l.Draw()
 
   print("Saving plots hopefully?")
-  c.SaveAs("plots/"+dType+"_closureTest_" + hType + ".png")
+  c.SaveAs("plots/"+dType+"_"+run+"_"+ntuple_version+"_cTest_plots_"+version+"_"+hType+".png")
   #c.SaveAs(dType+"_closureTest_" + pType + ".png")
 
 
 
-fout = TFile("hists/" + dType+ "_" + run + "_closureTestPt2.root", "RECREATE")
+fout = TFile("hists/" + dType+ "_" + run +"_"+ntuple_version+"_cTest_plots_"+version+".root", "RECREATE")
 
 for hName, hist in histDict.items():
   hist.Write()
 
-fin.Close()
 fout.Close()
 

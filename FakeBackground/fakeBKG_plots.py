@@ -22,7 +22,7 @@ era = "Summer16v3"
 #ntuple_version = "TreeMaker"
 ntuple_version = "TreeMakerRandS_skimsv8"
 
-version = "060822v2"
+version = "060922v1"
 #version_tag = None
 
 fin_name = fdir + get_file_name(dType, era, ntuple_version, "fakeBKG", version)
@@ -59,6 +59,7 @@ for region in regions2:
     h.GetYaxis().SetTitleOffset(2.0)
     gPad.SetLeftMargin(0.15)
 
+    h.SetStats(False)
     h.Draw("TEXT")
 
     fName = dType + "_" + era + "_" + ntuple_version + "_" + version + "_" + h_name

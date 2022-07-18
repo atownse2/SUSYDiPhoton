@@ -11,8 +11,8 @@ gROOT.SetStyle('Plain')
 
 head = "/afs/crc.nd.edu/user/a/atownse2/Public/SUSYDiPhoton/CMSSW_10_2_21/src/" 
 
-dType = "WGJets"
-#dType = "DYJetsToLL_M-50"
+#dType = "WGJets"
+dType = "DYJetsToLL_M-50"
 #dType = "TTJets"
 
 
@@ -20,12 +20,12 @@ tag = dataDict[dType]["tag"]
 era = dataDict[dType]["era"]
 HLT = dataDict[dType]["HLT"]
 
-version = "052622v3"
+version = "070122v1"
 
 outDir = "hists/"
 ###I/O
-ntuple_version =  "TreeMakerRandS_skimsv8"
-#ntuple_version = "TreeMaker"
+#ntuple_version =  "TreeMakerRandS_skimsv8"
+ntuple_version = "TreeMaker"
 
 ntuple_location = "root://cmsxrootd.fnal.gov//store/group/lpcsusyphotons/" + ntuple_version + "/"
 
@@ -90,7 +90,7 @@ for filename in filenames:
                 "4vec"  : t.Photons[i] , 
                 "xseed" : bool(t.Photons_hasPixelSeed[i]),
                 "barrel": t.Photons_isEB[i],
-                "index" : i} for i in range(len(t.Photons)) if t.Photons[i].Pt() > 70 and abs(t.Photons[i].Eta()) < 2.4 and passID(era, "tight", t, i)]
+                "index" : i} for i in range(len(t.Photons)) if t.Photons[i].Pt() > 70 and abs(t.Photons[i].Eta()) < 2.4 and t.Photons_fullID[i] == 1] #passID(era, "tight", t, i)
 
 
     if len(EMpass) < 2:
@@ -124,96 +124,32 @@ for filename in filenames:
 
     #Count events
     hists["num_events"].Fill(0)
-    
-    for reco in em:
+
+    for reco in [lead, trail]:
+
       if reco["barrel"]:
         region = "barrel"
       else:
         region = "endcap"
 
-
-      genPar_name = "genJet"
-      pt_pcdiff_min = None
-
-      for iPar, genPar in enumerate(t.GenParticles):
-        if genPar.Pt() < 10:
-          continue
-
-        #if deltaR(reco["4vec"], genPar) > 0.2 or pcdiff(reco["pt"], genPar.Pt()) > 20:
-        #  continue
-
-        if deltaR(reco["4vec"], genPar) > 0.2:
-          continue
-        
-        pt_pcdiff = pcdiff(reco["pt"], genPar.Pt())
-
-        if pt_pcdiff_min is None:
-          pt_pcdiff_min = pt_pcdiff
-        elif pt_pcdiff > pt_pcdiff_min:
-          continue
-
-        pdgid = abs(t.GenParticles_PdgId[iPar])
-
-        if pdgid == 11:
-          genPar_name = "genEle"
-        elif pdgid == 13:
-          genPar_name = "genMu"
-        elif pdgid == 15:
-          genPar_name = "genTau"
-        elif pdgid == 22:
-          genPar_name = "genPho"
-        else:
-          continue
-
-        pt_pcdiff_min = pt_pcdiff 
-
       if reco["xseed"]: #Electron
         #Fill Hists
-        hists[get_hist_name(genPar_name, "recoEle", region, "pt" )].Fill(reco["4vec"].Pt() , w)
-        hists[get_hist_name(genPar_name, "recoEle", region, "eta")].Fill(reco["4vec"].Eta(), w)
-        hists[get_hist_name(genPar_name, "recoEle", region, "njets")].Fill(njets, w)
-        hists[get_hist_name(genPar_name, "recoEle", region, "met")].Fill(t.MET, w)          
-        hists[get_hist_name(genPar_name, "recoEle", region, "nEle")].Fill(0, w)
-        hists[get_hist_name(genPar_name, "recoEle", region, "hadTowOverEM")].Fill(t.Photons_hadTowOverEM[reco["index"]], w)
+        hists[get_hist_name( "recoEle", region, "pt" )].Fill(reco["4vec"].Pt() , w)
+        hists[get_hist_name( "recoEle", region, "eta")].Fill(reco["4vec"].Eta(), w)
+        hists[get_hist_name( "recoEle", region, "njets")].Fill(njets, w)
+        hists[get_hist_name( "recoEle", region, "met")].Fill(t.MET, w)          
+        hists[get_hist_name( "recoEle", region, "nEle")].Fill(0, w)
+        hists[get_hist_name( "recoEle", region, "hadTowOverEM")].Fill(t.Photons_hadTowOverEM[reco["index"]], w)
 
 
       else: #Reco Photon
         #Fill Hists
-        hists[get_hist_name(genPar_name, "recoPho", region, "pt" )].Fill(reco["4vec"].Pt() , w)
-        hists[get_hist_name(genPar_name, "recoPho", region, "eta")].Fill(reco["4vec"].Eta(), w)
-        hists[get_hist_name(genPar_name, "recoPho", region, "njets")].Fill(njets, w)
-        hists[get_hist_name(genPar_name, "recoPho", region, "met")].Fill(t.MET, w)
-        hists[get_hist_name(genPar_name, "recoPho", region, "nPho")].Fill(0, w)
-        hists[get_hist_name(genPar_name, "recoPho", region, "hadTowOverEM")].Fill(t.Photons_hadTowOverEM[reco["index"]], w)
-
-    
-    for iPar, genPar in enumerate(t.GenParticles):
-      if genPar.Pt() < 10:
-        continue
-
-      pdgid = abs(t.GenParticles_PdgId[iPar])
-
-      if pdgid == 11:
-        genPar_name = "genEle"
-      elif pdgid == 13:
-        genPar_name = "genMu"
-      elif pdgid == 15:
-        genPar_name = "genTau"
-      elif pdgid == 22:
-        genPar_name = "genPho"
-      else:
-        genPar_name = "genJet"
-
-      if abs(genPar.Eta()) < 1.48:
-        region = "barrel"
-      else:
-        region = "endcap" 
-
-      hists[get_hist_name_1(genPar_name, region, "pt" )].Fill(reco["4vec"].Pt() , w)
-      hists[get_hist_name_1(genPar_name, region, "eta")].Fill(reco["4vec"].Eta(), w)
-      hists[get_hist_name_1(genPar_name, region, "njets")].Fill(njets, w)
-      hists[get_hist_name_1(genPar_name, region, "met")].Fill(t.MET, w)          
-      hists[get_hist_name_1(genPar_name, region, "hadTowOverEM")].Fill(t.Photons_hadTowOverEM[reco["index"]], w)
+        hists[get_hist_name( "recoPho", region, "pt" )].Fill(reco["4vec"].Pt() , w)
+        hists[get_hist_name( "recoPho", region, "eta")].Fill(reco["4vec"].Eta(), w)
+        hists[get_hist_name( "recoPho", region, "njets")].Fill(njets, w)
+        hists[get_hist_name( "recoPho", region, "met")].Fill(t.MET, w)
+        hists[get_hist_name( "recoPho", region, "nPho")].Fill(0, w)
+        hists[get_hist_name( "recoPho", region, "hadTowOverEM")].Fill(t.Photons_hadTowOverEM[reco["index"]], w)
 
 
   print("Closing File")

@@ -1,0 +1,17 @@
+
+071822v1:
+
+  -Added all regions to be written BB, BE, EB, EE
+
+071322v2:
+
+  -Modified region tag to represent (electron, photon)
+
+071322v1:
+
+  -Skipping Barrel-Barrel events
+  -Allowing Electrons in endcap
+
+070722v1:
+
+  -Base
