@@ -104,7 +104,7 @@ class SkimTuples:
         self.nbatches = nbatches
 
     def run(self):
-        self.outputs = out.Outputs(self.dType, self.year, self.analysis_region)
+        self.outputs = out.Outputs(self.dType, self.year, self.analysis_region, batch=self.batch)
 
         filenames = si.get_ntuple_filenames(
             self.dType, tuple_version[self.analysis_region], years=[self.year],
@@ -113,7 +113,7 @@ class SkimTuples:
         l.log(f"Processing {len(filenames)} files", 1)
         self.fill_outputs(filenames)
 
-        self.outputs.save(batch=self.batch)
+        self.outputs.save()
 
     def fill_outputs(self, filenames):
         '''Loop over files in filenames, fill outputs'''

@@ -38,3 +38,7 @@ def check_logs(job_tag):
       if os.stat(f"{condor_dir}/err/{err_file}").st_size != 0:
         print(f"Error file {err_file} is not empty")
         print(err_file)
+
+      else:
+        job_name = err_file.split(".")[0]
+        clear_logs(job_name)

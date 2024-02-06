@@ -24,11 +24,12 @@ if not os.path.exists(batch_output_dir):
 
 repo = git.Repo(top_dir)
 commit = repo.head.commit
+current_git_version = commit.hexsha[:7]
 
-def get_output_filename(dType, year, analysis_region, extension, output_type,
+def get_output_filename(dType, year, analysis_region, extension, output_type, git_version,
                        batch=None, tag_only=False):
 
-    tag = f'{dType}_{year}_{analysis_region}_{commit.hexsha[:7]}'
+    tag = f'{dType}_{year}_{analysis_region}_{git_version}'
     if tag_only:
         return tag
     
@@ -46,26 +47,27 @@ def get_output_filename(dType, year, analysis_region, extension, output_type,
 
     return filepath
 
-def load_outputs(dType, era, analysis_region):
-    return Outputs(dType, era, analysis_region).load()
+def load_outputs(dType, era, analysis_region, git_version=current_git_version):
+    return Outputs(dType, era, analysis_region, git_version).load()
 
 class Outputs:
-    def __init__(self, dType, era, analysis_region, test_load=False):
+    def __init__(self, dType, era, analysis_region, git_version=current_git_version, batch=None, test_load=False):
 
         self.dType = dType
         self.era = era
         self.years = si.get_years_from_era(era)
         self.analysis_region = analysis_region
+        self.git_version = git_version
 
         self.test_load = test_load
         self.load_instance = False
 
         self.types = [
-            Cutflows(dType, era, analysis_region),
-            Events(dType, era, analysis_region)]
+            Cutflows(dType, era, analysis_region, git_version, batch=batch),
+            Events(dType, era, analysis_region, git_version, batch=batch),]
 
         if dType != 'data':
-            self.types.append(GenElectrons(dType, era, analysis_region))
+            self.types.append(GenElectrons(dType, era, analysis_region, git_version, batch=batch))
         
         self.outputs = { output.output_type: output for output in self.types}
     
@@ -102,26 +104,33 @@ class Outputs:
         
         return self
     
-    def save(self, batch=None):
+    def save(self):
         for output in self.outputs.values():
-            output.save(batch=batch)
+            output.save()
 
 class Output:
-    def __init__(self, dType, year, analysis_region, batch=None):
+    def __init__(self, dType, year, analysis_region, git_version, batch=None):
         self.dType = dType
         self.year = year
         self.analysis_region = analysis_region
+        self.git_version = git_version
+        self.batch = batch
 
         self.loaded = False
 
-    def get_filename(self, batch=None, tag_only=False):
+    @property
+    def filename(self):
+        return self.get_filename()
+
+    def get_filename(self, tag_only=False, batch=None):
+        if batch is None: batch = self.batch
         return get_output_filename(
-            self.dType, self.year, self.analysis_region, self.extension, self.output_type, batch=batch, tag_only=tag_only)
+            self.dType, self.year, self.analysis_region, self.extension, self.output_type, self.git_version, batch=batch, tag_only=tag_only)
     
     def load(self, test=False):
-        filename = self.get_filename()
+        filename = self.filename
         
-        if not os.path.exists(filename):
+        if not os.path.exists(self.filename):
             # Look for batch files
             batch_dir = os.path.dirname(self.get_filename(batch=0))
             file_tag = self.get_filename(tag_only=True)
@@ -149,7 +158,7 @@ class Output:
                     os.remove(batch_filename)
             
         else:
-            self.load_from_file(filename)
+            self.load_from_file(self.filename)
         
         self.loaded = True
         self.save() # Save combined file
@@ -194,8 +203,8 @@ class Cutflow():
         return self
 
 class Cutflows(Output):
-    def __init__(self, dType, year, analysis_region):
-        super().__init__(dType, year, analysis_region)
+    def __init__(self, dType, year, analysis_region, git_version, batch=None):
+        super().__init__(dType, year, analysis_region, git_version, batch=batch)
 
         self.info = {}
 
@@ -229,11 +238,10 @@ class Cutflows(Output):
             self.info[dataset] = Cutflow(self.dType, self.year, self.analysis_region)
         return self.info[dataset]
     
-    def save(self, batch=None):
+    def save(self):
         import json
-        filename = self.get_filename(batch=batch)
         to_save = {dataset: cutflow.to_dict() for dataset, cutflow in self.info.items()}
-        with open(filename, 'w') as f:
+        with open(self.filename, 'w') as f:
             json.dump(to_save, f, indent=4)
     
     def load_from_file(self, filename):
@@ -247,8 +255,8 @@ class Cutflows(Output):
 
 class Events(Output):
 
-    def __init__(self, dType, year, analysis_region):
-        super().__init__(dType, year, analysis_region)
+    def __init__(self, dType, year, analysis_region, git_version, batch=None):
+        super().__init__(dType, year, analysis_region, git_version, batch=batch)
 
         self.df = None
 
@@ -274,9 +282,8 @@ class Events(Output):
         
         return self
 
-    def save(self, batch=None):
-        filename = self.get_filename(batch=batch)
-        self.df.to_parquet(filename)
+    def save(self):
+        self.df.to_parquet(self.filename)
     
     def load_from_file(self, filename):
         self.df = pd.read_parquet(filename)
@@ -287,7 +294,7 @@ class Events(Output):
             raise ValueError("Cannot scale data")
 
         # Get dataset info
-        cutflow = Cutflows(self.dType, self.year, self.analysis_region).load()
+        cutflow = Cutflows(self.dType, self.year, self.analysis_region, self.git_version, batch=self.batch).load()
 
         for dataset in cutflow.datasets:
             total_mc = cutflow[dataset]['total_mc']
@@ -302,15 +309,15 @@ class Events(Output):
 
 
 class GenElectrons(Events):
-    def __init__(self, dType, year, analysis_region):
-        super().__init__(dType, year, analysis_region)
+    def __init__(self, dType, year, analysis_region, git_version, batch=None):
+        super().__init__(dType, year, analysis_region, git_version, batch=batch)
         self.output_type = 'genelectrons'
 
 
 class Histograms(Output):
 
-    def __init__(self, dType, year, analysis_region):
-        super().__init__(dType, year, analysis_region)
+    def __init__(self, dType, year, analysis_region, git_version, batch=None):
+        super().__init__(dType, year, analysis_region, git_version, batch=batch)
 
         self.histograms = {}
 
@@ -334,10 +341,9 @@ class Histograms(Output):
     def __setitem__(self, histname, hist):
         self.histograms[histname] = hist
 
-    def save(self, batch=None):
+    def save(self):
         import pickle
-        filename = self.get_filename(batch=batch)
-        with open(filename, 'wb') as f:
+        with open(self.filename, 'wb') as f:
             pickle.dump(self.histograms, f)
 
     def load_from_file(self, filename):
@@ -351,7 +357,7 @@ class Histograms(Output):
             raise ValueError("Cannot scale data")
 
         # Get dataset info
-        cutflow = Cutflows(self.dType, self.year, self.analysis_region).load()
+        cutflow = Cutflows(self.dType, self.year, self.analysis_region, self.git_version, batch=self.batch).load()
 
         for histname, hist in self.histograms.items():
             for dataset in cutflow.datasets:

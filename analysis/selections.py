@@ -169,7 +169,7 @@ def genMatching(tree, reco_particles):
 
             dR = deltaR(p['4vec'], genPar)
             pcdiff_pt = pcdiff(p['4vec'].Pt(), genPar.Pt())
-            if dR > 1 and pcdiff_pt > 10: continue
+            if dR > 0.4 : continue
 
             # Classify gen particle
             pdgid = tree.GenParticles_PdgId[iPar]
