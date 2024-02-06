@@ -75,7 +75,7 @@ def submit_skims(dType, analysis_region,
         for batch in range(nbatches):
             arguments = f"{dType} {analysis_region} {year} {nbatches} {batch} {verbosity}"
             
-            tag = out.get_output_filename(dType, year, analysis_region, "", "", tag_only=True)
+            tag = out.get_output_filename(dType, year, analysis_region, "", "", out.current_git_version, tag_only=True)
             job_name = f"{tag}_{batch}"
 
             if test and not test_batch:
