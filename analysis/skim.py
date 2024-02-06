@@ -1,6 +1,7 @@
+import os
 import sys
 
-top_dir = "/afs/crc.nd.edu/user/a/atownse2/Public/SUSYDiPhoton"
+top_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(top_dir)
 
 from analysis.utils import sample_info as si
@@ -26,6 +27,29 @@ job_splittings = {
     'DYJetsToLL' : 20,
     'TTGJets' : 10,
 }
+
+def print_diff(repo):
+    import subprocess
+    diff_index = repo.index.diff(None)
+    for diff in diff_index.iter_change_type('M'):  # 'M' for modified files
+        if diff.a_path.endswith('.ipynb'): continue
+        print(subprocess.check_output(['git', 'diff', '--', diff.a_path]).decode())
+
+def check_git():
+    import git
+    repo = git.Repo(top_dir)
+
+    if not repo.is_dirty(): return
+
+    print("Repository has uncommitted changes")
+    print_diff(repo)
+    _ = input("Would you like to commit these changes now? y/n: ")
+    if _ in ['n', 'N']: return
+
+    repo.git.add(update=True)
+    message = input("Enter commit message: ")
+    repo.index.commit(message)
+
 
 def submit_skims(dType, analysis_region,
         nbatches=None, 
@@ -234,8 +258,11 @@ if __name__ == "__main__":
         args.year = "2016"
         args.nbatches = 1000
         args.verbosity = 2
+        out.output_dir = f"{top_dir}/test/outputs"
+        out.batch_output_dir = f"{top_dir}/test/outputs/batch"
 
     if args.submit_batches or args.test_batch:
+        check_git()
         submit_skims(args.dType, args.analysis_region, test=args.test, verbosity=args.verbosity, test_batch=args.test_batch)
     else:
         if args.year is None:

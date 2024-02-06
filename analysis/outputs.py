@@ -1,5 +1,6 @@
 import os
-from typing import Any
+
+import git
 
 import pandas as pd
 
@@ -21,10 +22,13 @@ if not os.path.exists(batch_output_dir):
     Warning(f"Creating batch output directory {batch_output_dir} for the first time, please set the correct permissions for condor.")
     os.makedirs(batch_output_dir)
 
+repo = git.Repo(top_dir)
+commit = repo.head.commit
+
 def get_output_filename(dType, year, analysis_region, extension, output_type,
                        batch=None, tag_only=False):
 
-    tag = f'{dType}_{year}_{analysis_region}'
+    tag = f'{dType}_{year}_{analysis_region}_{commit.hexsha[:7]}'
     if tag_only:
         return tag
     

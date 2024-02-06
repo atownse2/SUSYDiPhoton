@@ -4,16 +4,17 @@ channels:
 dependencies:
   - root
   - htcondor
-  - ipython
-  - xrootd
-  - pyarrow
+  - ndcctools
+  - numpy
   - pandas
   - matplotlib
   - hist
-  - conda-pack
-  - numpy
+  - ipython
   - ipywidgets
   - ipympl
   - ipykernel
+  - gitpython
+  - conda-pack
+  - xrootd
+  - pyarrow
   - pyyaml
-  - ndcctools

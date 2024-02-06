@@ -155,7 +155,7 @@ class EventSelection:
 
 
 def pcdiff(a,b):
-    return 100*np.abs(a-b)/(a+b)/2
+    return 100*np.abs(a-b)/(a+b)
 
 def deltaR(p1,p2):
     from ROOT import Math
