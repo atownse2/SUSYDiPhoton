@@ -1,174 +1,258 @@
-import sys
-import os
-import json
-import re
-
-from array import array
-from collections import OrderedDict
-
-from ROOT import Math
 import numpy as np
 
-top_dir = '/afs/crc.nd.edu/user/a/atownse2/Public/SUSYDiPhoton/'
+selections = {}
 
-# gROOT.SetBatch()        # don't pop up canvases
-# gROOT.SetStyle('Plain') 
+# Signal Region
+selections["SR"] = {
+    "PhotonWP" : "loose",
+    "NPhotons" : 2,
+    "PixelSeedVeto" : True,
+    "MinBarrelPhotons" : 1,
+    "NGoodJets" : 2,
+    "HardMETPt" : 130,
+    "AbsHardMetMinusMet" : 100,              
+    "MuonVeto" : True,
+    "ElectronVeto" : True,
+}
 
+# EGamma Control Region
+selections["EG"] = selections["SR"].copy()
+selections["EG"].pop("PixelSeedVeto")
 
+# DY Control Region
+selections["DY"] = {
+    "PhotonWP" : "loose",
+    "NPhotons" : 2,
+    "ZWindow" : True,
+}
 
-###Cuts
-def make_cuts(tree, trigger_index, photonWP, skimmer):
-  '''Reject events that don't pass cuts. Returns two highest pt photons/electrons which pass all cuts.'''
-  if tree.TriggerPass[trigger_index]!=1 or tree.IsRandS != 0: return False
-  if tree.mva_Ngoodjets<=1 or tree.mva_Photons1Et<=75: return False
-  if skimmer == 'closure' and (tree.HardMETPt<=130 or abs(tree.HardMetMinusMet)>=100): return False
-  if len(tree.Muons)   > 0: return False
-  if len(tree.Photons) < 2: return False
-
-  #Get photons that pass
-  photonID = [passID(photonWP, tree.Photons_isEB[i], tree.Photons[i].Pt(),   
-                tree.Photons_hadTowOverEM[i], 
-                tree.Photons_sigmaIetaIeta[i], 
-                tree.Photons_pfChargedIsoRhoCorr[i], 
-                tree.Photons_pfNeutralIsoRhoCorr[i], 
-                tree.Photons_pfGammaIsoRhoCorr[i]) for i in range(len(tree.Photons))]
-
-  pho_pass = lambda i: photonID[i] and tree.Photons[i].Pt() > 80 and abs(tree.Photons[i].Eta()) < 2.4
-  eg_pass = [{"pt"  : tree.Photons[i].Pt(),
-              "eta" : tree.Photons[i].Eta(),
-              "4vec"  : tree.Photons[i] , 
-              "xseed" : bool(tree.Photons_hasPixelSeed[i]),
-              "barrel": bool(tree.Photons_isEB[i]),
-              "index" : i} 
-              for i in range(len(tree.Photons)) if pho_pass(i)]
-
-  if len(eg_pass) < 2:
-    return False
-
-  #Sort by pt
-  eg = sorted( eg_pass, key = lambda i: i["pt"], reverse=True) 
-
-  #At least one photon in the barrel
-  if skimmer=='closure' and not eg[0]['barrel'] and not eg[1]['barrel']: return False
-
-  #Veto if extra leptons
-  #if skimmer=='closure' and len(tree.Electrons) > len([e for e in eg if e['xseed']]): return False 
-
-  return eg[0],eg[1]
-
-#WP cutBasedElectronID_Fall17_94X_V2
-cutDict = { 'barrel' : {'loose': { 'hadTowOverEM'       : 0.04596,
+# https://twiki.cern.ch/twiki/bin/view/CMS/CutBasedPhotonIdentificationRun2?sortcol=0;table=1;up=0#sorted_table
+photonWPs = { 'loose' : {'barrel': { 'hadTowOverEM'       : 0.04596,
                                    'sigmaIetaIeta'      : 0.0106,
                                    'pfChargedIsoRhoCorr': 1.694,
                                    'pfNeutralIsoRhoCorr': (24.032, 0.01512, 2.259e-05),
                                    'pfGammaIsoRhoCorr'  : (2.876, 0.004017)}, 
-                        'medium':{ 'hadTowOverEM'       : 0.02197,
-                                   'sigmaIetaIeta'      : 0.01015,
-                                   'pfChargedIsoRhoCorr': 1.141,
-                                   'pfNeutralIsoRhoCorr': (1.189, 0.01512, 2.259e-05),
-                                   'pfGammaIsoRhoCorr'  : (2.08, 0.004017)}},
-            'endcap' : {'loose': { 'hadTowOverEM'       : 0.0590,
+                       'endcap': { 'hadTowOverEM'       : 0.0590,
                                    'sigmaIetaIeta'      : 0.0272,
                                    'pfChargedIsoRhoCorr': 2.089,
                                    'pfNeutralIsoRhoCorr': (19.722, 0.0117, 2.3e-05),
-                                   'pfGammaIsoRhoCorr'  : (4.162, 0.0037)}, 
-                        'medium':{ 'hadTowOverEM'       : 0.0326,
+                                   'pfGammaIsoRhoCorr'  : (4.162, 0.0037)}}, 
+            'medium': {'barrel': { 'hadTowOverEM'       : 0.02197,
+                                   'sigmaIetaIeta'      : 0.01015,
+                                   'pfChargedIsoRhoCorr': 1.141,
+                                   'pfNeutralIsoRhoCorr': (1.189, 0.01512, 2.259e-05),
+                                   'pfGammaIsoRhoCorr'  : (2.08, 0.004017)},
+                        'endcap':{ 'hadTowOverEM'       : 0.0326,
                                    'sigmaIetaIeta'      : 0.0272,
                                    'pfChargedIsoRhoCorr': 1.051,
                                    'pfNeutralIsoRhoCorr': (2.718, 0.0117, 2.3e-5),
                                    'pfGammaIsoRhoCorr'  : (3.867, 0.0037)}}}
 
-def passID(WP, isEB, pt, hadTowOverEM, sigmaIetaIeta, pfChargedIsoRhoCorr, pfNeutralIsoRhoCorr, pfGammaIsoRhoCorr):
-  region = 'barrel' if isEB else 'endcap'
-  c = cutDict[region][WP]
-  if hadTowOverEM > c['hadTowOverEM']:
-    return False
-  elif sigmaIetaIeta > c['sigmaIetaIeta']:
-    return False
-  elif pfChargedIsoRhoCorr > c['pfChargedIsoRhoCorr']:
-    return False
 
-  i = c['pfNeutralIsoRhoCorr']
-  if pfNeutralIsoRhoCorr > (i[0] + i[1]*pt + i[2]*pt*pt) :
-    return False
+class EventSelection:
 
-  i = c['pfGammaIsoRhoCorr']
-  if pfGammaIsoRhoCorr > (i[0] + i[1]*pt):
-    return False
+    def __init__(
+        self,
+        tree, 
+        trigger_index,
+        analysis_region,
+        cutflow,
+        ):
 
-  return True
+        cutflow['total'] += 1
+
+        self.selections = selections[analysis_region]
+        self.pass_selection = self.pass_selections(tree, trigger_index, cutflow)
+
+    def pass_selections(self, tree, trigger_index, cutflow):
+        s = self.selections
+        # Preselections
+        if tree.IsRandS != 0: return False
+        if tree.TriggerPass[trigger_index]==0: return False
+        cutflow['Trigger'] += 1
+
+        # if tree.mva_Photons1Et<=75: return False # Don't know why this is here
+
+        if "HardMETPt" in s:
+            if tree.HardMETPt<=s["HardMETPt"]: return False
+            cutflow['HardMETPt'] += 1
+
+        if "NPhotons" in s:
+            if len(tree.Photons) < s["NPhotons"]: return False
+            cutflow["NPhotons"] += 1
+
+        if 'NGoodJets' in s:
+            if tree.mva_Ngoodjets<s['NGoodJets']: return False
+            cutflow['NJets'] += 1
+        
+        candidates = self.get_photon_candidates(tree)
+
+        if "NPhotons" in s:
+            if len(candidates) < s["NPhotons"]: return
+            cutflow['NLoosePhotons'] += 1
+
+        # Analyis selections
+        candidates = candidates[:2]
+        if "MuonVeto" in s:
+            if len(tree.Muons) > 0: return
+            cutflow['MuonVeto'] += 1
+        if "ElectronVeto" in s:
+            hardElectrons = [e for e in tree.Electrons if e.Pt() > 40 and not any(deltaR(e, g['4vec']) < 0.1 for g in candidates)]
+            if len(hardElectrons) > 0: return
+            cutflow['ElectronVeto'] += 1
+        
+        if "MinBarrelPhotons" in s:
+            NBarrelPho = sum([c['barrel'] for c in candidates])
+            if NBarrelPho < s["MinBarrelPhotons"]: return
+            cutflow['MinBarrelPhotons'] += 1
+
+        if "ZWindow" in s:
+            invMass = (candidates[0]['4vec'] + candidates[1]['4vec']).M()
+            if invMass < 50 or invMass > 130: return
+            cutflow['ZWindow'] += 1
+
+        self.pass_selection = True
+        self.candidates = candidates[:2]
+        cutflow['All'] += 1
+
+        return True
+
+    def get_photon_candidates(
+        self,
+        tree,
+        ):
+
+        s = self.selections
+
+        candidates = []
+        for i, photon in enumerate(tree.Photons):
+            candidate = {}
+
+            if "PixelSeedVeto" in s and tree.Photons_hasPixelSeed[i]: continue
+            if photon.Pt() < 80 or abs(photon.Eta()) > 2.4: continue
+
+            pt = photon.Pt()
+            region = 'barrel' if tree.Photons_isEB[i] else 'endcap'
+            c = photonWPs[s['PhotonWP']][region]
+            if tree.Photons_hadTowOverEM[i] > c['hadTowOverEM']: continue
+            if tree.Photons_sigmaIetaIeta[i] > c['sigmaIetaIeta']: continue
+            if tree.Photons_pfChargedIsoRhoCorr[i] > c['pfChargedIsoRhoCorr']: continue
+
+            p = c['pfNeutralIsoRhoCorr']
+            if tree.Photons_pfNeutralIsoRhoCorr[i] > (p[0] + p[1]*pt + p[2]*pt*pt) : continue
+            p = c['pfGammaIsoRhoCorr']
+            if tree.Photons_pfGammaIsoRhoCorr[i] > (p[0] + p[1]*pt): continue
+
+            candidate['index'] = i
+            candidate['4vec'] = photon
+            candidate['barrel'] = tree.Photons_isEB[i]
+            candidate['xseed'] = bool(tree.Photons_hasPixelSeed[i])
+
+            candidates.append(candidate)
+
+        candidates = sorted( candidates, key = lambda i: i["4vec"].Pt(), reverse=True) 
+        return candidates
 
 
 def pcdiff(a,b):
-  return 100*np.abs(a-b)/(a+b)/2
+    return 100*np.abs(a-b)/(a+b)/2
 
-def deltaR(photon,jet):
-  return Math.VectorUtil.DeltaR(photon, jet)
+def deltaR(p1,p2):
+    from ROOT import Math
+    return Math.VectorUtil.DeltaR(p1,p2)
 
-def genMatching(reco_g, genParticles, genParticles_PdgId): 
-  '''Match genParticles to EM objects'''
-  for eg in reco_g:
-    hasMatch = False
-    for iPar, genPar in enumerate(genParticles):
-      if deltaR(eg['4vec'], genPar) < 1:
-        pdgid = abs(genParticles_PdgId[iPar])
+def genMatching(tree, reco_particles): 
+    '''Match genParticles to EM objects'''
+    for p in reco_particles:
+        matches = []
+        for iPar, genPar in enumerate(tree.GenParticles):
 
-        if pdgid == 11:
-          genPar_name = "genEle"
-        elif pdgid == 13:
-          genPar_name = "genMu"
-        elif pdgid == 15:
-          genPar_name = "genTau"
-        elif pdgid == 22:
-          genPar_name = "genPho"
-        else:
-          genPar_name = "genJet"
+            dR = deltaR(p['4vec'], genPar)
+            pcdiff_pt = pcdiff(p['4vec'].Pt(), genPar.Pt())
+            if dR > 1 and pcdiff_pt > 10: continue
 
-        #Match or not
-        if hasMatch == False:
-          eg['genPar_index'] = iPar
-          eg['genPar_name'] = genPar_name
-          eg['genPar_pt'] = genPar.Pt()
-          hasMatch = True
-        elif pcdiff(eg['pt'], genPar.Pt()) < pcdiff(eg['pt'], eg['genPar_pt']):
-          eg['genPar_index'] = iPar
-          eg['genPar_name'] = genPar_name
-          eg['genPar_pt'] = genPar.Pt()
+            # Classify gen particle
+            pdgid = tree.GenParticles_PdgId[iPar]
+            if isW(pdgid): continue
+            elif isPhoton(pdgid) : genPar_name = 'genPho'
+            elif isElectron(pdgid) : genPar_name = 'genEle'
+            elif isMuon(pdgid) : genPar_name = 'genMu'
+            elif isTau(pdgid) : genPar_name = 'genTau'
+            else: genPar_name = 'genJet'
 
-    if hasMatch == False:
-      eg['genPar_name'] = 'genJet'
-    
-  return reco_g
+            matches.append({'index':iPar, 'name':genPar_name, 'pcdiff_pt':pcdiff_pt })
+
+        if len(matches) > 1: # Sort matches by pt_pcdiff
+            matches = sorted(matches, key = lambda i: i['pcdiff_pt'])
+        else: # If no matches, call it a genJet
+            matches.append({'index':None, 'name':'genJet', 'pcdiff_pt':None})
+
+        # Add matches to reco particle container  
+        p['genMatch'] = matches[0]
+
+def isPhoton(pdgId):
+    return abs(pdgId) == 22
 
 def isNeutrino(pdgId):
-  return abs(pdgId) in [12,14,16]
+    return abs(pdgId) in [12,14,16]
 
 def isW(pdgId):
-  return abs(pdgId) == 24
+    return abs(pdgId) == 24
 
 def isLepton(pdgId):
-  return abs(pdgId) in [11,13,15]
+    return abs(pdgId) in [11,13,15]
 
-def lostLepton(electrons, muons, genparticles, pdgids, genparticles_parentids):
-  '''Check if there is a reconstructed electron or muon from a W decay'''
-  recos = [y for x in [electrons, muons] for y in x]
+def isElectron(pdgId):
+    return abs(pdgId) == 11
 
-  genLeptonsFromW = []
-  for genPar, pdgid, genparticle_parentid in zip(genparticles, pdgids, genparticles_parentids):
-    if isLepton(pdgid) and isW(genparticle_parentid):
-      genLeptonsFromW.append(genPar)
+def isMuon(pdgId):
+    return abs(pdgId) == 13
+
+def isTau(pdgId):
+    return abs(pdgId) == 15
+
+class WEvent:
+    def __init__(self, tree):
+
+        # Count W bosons
+        self.nWs = 0
+        for iPar, genPar in enumerate(tree.GenParticles):
+            if isW(tree.GenParticles_PdgId[iPar]):
+                self.nWs += 1
+        
+        self.hasW = self.nWs > 0
+        if not self.hasW:
+            return
+
+        # Get daughters
+        self.daughters = []
+        for iPar, genPar in enumerate(tree.GenParticles):
+            if isNeutrino(tree.GenParticles_PdgId[iPar]): continue
+            iMom = tree.GenParticles_ParentIdx[iPar]
+            if isW(tree.GenParticles_PdgId[iMom]):
+                self.daughters.append({
+                    'index': iPar,
+                    '4vec': genPar,
+                    'pdgId': tree.GenParticles_PdgId[iPar],
+                })
   
-  #If there are no leptons from W decay, return False
-  for genLepton in genLeptonsFromW:
-    hasRecoMatch  = False
-    for reco in recos:
-      if deltaR(genLepton, reco) < 0.6:
-        hasRecoMatch = True
-        break
-    if not hasRecoMatch :
-      return True
-  return False
+        # Classify decay mode
+        if any(isLepton(daughter['pdgId']) for daughter in self.daughters):
+            self.decay_mode = 'leptonic'
+        else:
+            self.decay_mode = 'hadronic'
 
+        # Check if daughters match with a pf candidate
+        for daughter in self.daughters:
+            daughter['hasMatch'] = False
+            for jet in tree.JetsAUX:
+                if deltaR(daughter['4vec'], jet) < 0.1:
+                    daughter['hasMatch'] = True
+                    break
+
+        # Count daughters with matches
+        self.nMatchedDaughters = sum([daughter['hasMatch'] for daughter in self.daughters])
+        
 
 if __name__ == '__main__':
   pass

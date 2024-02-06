@@ -2,11 +2,11 @@ name: diphoton-env
 channels:
   - conda-forge
 dependencies:
-  - python=3.8
   - root
   - htcondor
   - ipython
   - xrootd
+  - pyarrow
   - pandas
   - matplotlib
   - hist
