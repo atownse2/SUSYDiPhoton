@@ -28,30 +28,9 @@ job_splittings = {
     'TTGJets' : 10,
 }
 
-def print_diff(repo):
-    import subprocess
-    diff_index = repo.index.diff(None)
-    for diff in diff_index.iter_change_type('M'):  # 'M' for modified files
-        if diff.a_path.endswith('.ipynb'): continue
-        print(subprocess.check_output(['git', 'diff', '--', diff.a_path]).decode())
 
-def check_git():
-    import git
-    repo = git.Repo(top_dir)
-
-    if not repo.is_dirty(): return
-
-    print("Repository has uncommitted changes")
-    print_diff(repo)
-    _ = input("Would you like to commit these changes now? y/n: ")
-    if _ in ['n', 'N']: return
-
-    repo.git.add(update=True)
-    message = input("Enter commit message: ")
-    repo.index.commit(message)
-
-
-def submit_skims(dType, analysis_region,
+def submit_skims(
+        dType, analysis_region, git_tag,
         nbatches=None, 
         test=False,
         test_batch=False,
@@ -75,7 +54,7 @@ def submit_skims(dType, analysis_region,
         for batch in range(nbatches):
             arguments = f"{dType} {analysis_region} {year} {nbatches} {batch} {verbosity}"
             
-            tag = out.get_output_filename(dType, year, analysis_region, "", "", out.current_git_version, tag_only=True)
+            tag = out.get_output_filename(dType, year, analysis_region, git_tag, "", "", tag_only=True)
             job_name = f"{tag}_{batch}"
 
             if test and not test_batch:
@@ -89,7 +68,8 @@ def submit_skims(dType, analysis_region,
 
 class SkimTuples:
 
-    def __init__(self, dType, analysis_region, year,
+    def __init__(self,
+                 dType, year, analysis_region, git_tag,
                  verbosity=0,
                  batch=None, 
                  nbatches=None):
@@ -97,18 +77,26 @@ class SkimTuples:
         l.set_max_verbosity(verbosity)
 
         self.dType = dType
-        self.isMC = dType != 'data'
         self.analysis_region = analysis_region
         self.year = year
+        self.git_tag = git_tag
         self.batch = batch
         self.nbatches = nbatches
 
-    def run(self):
-        self.outputs = out.Outputs(self.dType, self.year, self.analysis_region, batch=self.batch)
+        self.isMC = dType != 'data'
 
-        filenames = si.get_ntuple_filenames(
-            self.dType, tuple_version[self.analysis_region], years=[self.year],
-            batch=self.batch, nbatches=self.nbatches)
+    def run(self):
+        self.outputs = out.Outputs(self.dType,
+                                   self.year,
+                                   self.analysis_region,
+                                   self.git_tag,
+                                   batch=self.batch)
+
+        filenames = si.get_ntuple_filenames(self.dType,
+                                            tuple_version[self.analysis_region],
+                                            years=[self.year],
+                                            batch=self.batch,
+                                            nbatches=self.nbatches)
         
         l.log(f"Processing {len(filenames)} files", 1)
         self.fill_outputs(filenames)
@@ -241,11 +229,14 @@ class SkimTuples:
 if __name__ == "__main__":
     import time
 
+    from analysis.utils import version
+    
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("dType", help="Data type to process")
     parser.add_argument("analysis_region", help="Analysis region to process")
     parser.add_argument("--submit_batches", action="store_true", help="Submit batch jobs")
+    parser.add_argument("--git_tag", "-tag", type=str, default=version.get_last_tag(), help="Git tag to use for output")
     parser.add_argument("-y", "--year", type=str, default=None, help='years to run')
     parser.add_argument("-n", "--nbatches", type=int, default=1, help="Number of batches")
     parser.add_argument("-b", "--batch", type=int, default=0, help="Batch number")
@@ -262,16 +253,20 @@ if __name__ == "__main__":
         out.batch_output_dir = f"{top_dir}/test/outputs/batch"
 
     if args.submit_batches or args.test_batch:
-        check_git()
-        submit_skims(args.dType, args.analysis_region, test=args.test, verbosity=args.verbosity, test_batch=args.test_batch)
+        version.check_git()
+        args.git_tag = version.get_last_tag()
+        submit_skims(args.dType, args.analysis_region, args.git_tag, test=args.test, verbosity=args.verbosity, test_batch=args.test_batch)
     else:
         if args.year is None:
             raise ValueError("Must specify year when not submitting batches")
         
         t1 = time.time()
-        SkimTuples(args.dType, args.analysis_region,
-                  year=args.year,
-                  verbosity=args.verbosity,
-                  batch=args.batch, nbatches=args.nbatches).run()
+        SkimTuples(
+            args.dType,
+            args.year,
+            args.analysis_region,
+            args.git_tag,
+            verbosity=args.verbosity,
+            batch=args.batch, nbatches=args.nbatches).run()
         t2 = time.time()
         print(f"Time elapsed: {t2-t1:.2f} s")

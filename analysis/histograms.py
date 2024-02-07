@@ -199,7 +199,7 @@ def invariantMass(data, hist_name):
         )
 
 def genBackground(data):
-    genMatches = set(data['lead_genMatch'].unique()) | set(data['subl_genMatch'].unique())
+    genMatches = ["genPho", "genEle", "genMu", "genTau", "genJet"]
     return hist.Hist( 
         hist.axis.StrCategory(genMatches, name="lead_genMatch", label="Lead Photon Gen Match"),
         hist.axis.StrCategory(genMatches, name="subl_genMatch", label="Sublead Photon Gen Match"),
