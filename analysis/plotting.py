@@ -49,6 +49,9 @@ SEABORN_PALETTES = dict(
 
 # plt.rcParams['axes.prop_cycle'] = plt.cycler(color=SEABORN_PALETTES['colorblind6'])
 
+def add_version_tag(fig, tag):
+    fig.text(0.07, 0.01, tag, ha='left', va='bottom', fontsize=16)
+
 def get_error_bars(hist):
 
     def calc_garwood(k):
@@ -117,6 +120,7 @@ def plot1d(
     return fig, ax
 
 def plot2d(h, title=None, fig_size=(10,10),
+           fig=None, ax=None,
             cmap='binary', alpha=1, cbar=True,
             xticks=None, yticks=None,
             display_bin_values=False,
@@ -131,8 +135,9 @@ def plot2d(h, title=None, fig_size=(10,10),
         if 'dataset' in h.axes.name:
             h = h[{'dataset':sum}]
 
-    fig, ax = plt.subplots()
-    fig.set_size_inches(*fig_size)
+    if fig is None or ax is None:
+        fig, ax = plt.subplots()
+        fig.set_size_inches(*fig_size)
     ax.set_title(title)
     if setlogy:
         ax.set_yscale('log')

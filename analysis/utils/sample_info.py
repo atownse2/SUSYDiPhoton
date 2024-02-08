@@ -134,10 +134,7 @@ def get_dType(filename):
 
 def get_subset(filename):
   dType = get_dType(filename)
-
-  if dType == 'data':
-    return 'data'
-
+  if isinstance(sample_subsets[dType], str): return sample_subsets[dType]
   for subset in sample_subsets[dType]:
     if subset in filename:
       return subset

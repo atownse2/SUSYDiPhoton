@@ -6,7 +6,9 @@ import numpy as np
 import pandas as pd
 
 top_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-plot_dir = f"{top_dir}/outputs/plots"
+plot_dir = f"{top_dir}/outputs/plots/egtf/fits/"
+if not os.path.exists(plot_dir):
+    os.makedirs(plot_dir)
 
 from analysis.utils.logger import Logger
 l = Logger()
@@ -143,7 +145,7 @@ def fit(
 
         legend.Draw()
 
-        fout=f'{plot_dir}/egtf/fits/{name}_{fit_type}_{sig.name}.png'
+        fout=f'{plot_dir}/{name.replace(" ", "_")}_{fit_type}_{sig.name}.png'
         return_vals['filename'] = fout
         c.SaveAs(fout)
 

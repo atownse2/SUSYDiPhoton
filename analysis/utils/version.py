@@ -4,8 +4,15 @@ import git
 
 top_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-repo = git.Repo(top_dir)
-git_version = repo.head.object.hexsha[:7]
+def print_commits(n=5):
+    repo = git.Repo(top_dir)
+    commits = list(repo.iter_commits())
+    for i, commit in enumerate(commits[:n]):
+        print(f"Message: {commit.message}")
+        print(f"Author: {commit.author.name} <{commit.author.email}>")
+        print(f"Date: {commit.authored_datetime}")
+        print(f"SHA: {commit.hexsha}")
+        print()
 
 def print_diff(repo):
     import subprocess

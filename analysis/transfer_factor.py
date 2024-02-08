@@ -9,7 +9,7 @@ top_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(top_dir)
 
 import analysis.fitting as fit
-import analysis.skim as skim
+from analysis import outputs as out
 
 
 tf_cache = f"{top_dir}/cache/tf"
@@ -39,9 +39,11 @@ def round_tf(tf, tf_err, n=3):
 
 
 class BaseTF:
-    def __init__(self, isMC, years=None):
+    def __init__(self, isMC, git_tag, years=None, remake=False):
 
         self.isMC = isMC
+        self.git_tag = git_tag
+
         self.dType = "DYJetsToLL" if isMC else "data"
 
         self.years = ["2016", "2017", "2018"] if years is None else years
@@ -51,10 +53,10 @@ class BaseTF:
         self.info = {year: None for year in self.years}
         self.cache = f"{tf_cache}/{self.name}_{self.dType}.json"
 
-        self.init_tf()
+        self.init_tf(remake)
 
-    def init_tf(self):
-        if os.path.exists(self.cache):
+    def init_tf(self, remake):
+        if os.path.exists(self.cache) and not remake:
             self.load_tf()
         else:
             self.calculate_tf()
@@ -82,15 +84,15 @@ class BaseTF:
 
 class CombinedTF(BaseTF):
 
-    def __init__(self, isMC, years=None):
+    def __init__(self, isMC, git_tag, **kwargs):
         self.name = "CombinedTF"
-        super().__init__(isMC, years)
+        super().__init__(isMC, git_tag, **kwargs)
 
     def calculate_tf(self):
         for year in self.years:
             self.info[year] = {"tf": {}, "tf_err": {}}
 
-            df = skim.load_skims(self.dType, year, "DY")[0]
+            df = out.load_outputs(self.dType, year, "DY", self.git_tag).events.df
 
             BB = (abs(df['lead_eta'])<1.4442) & (abs(df['subl_eta'])<1.4442)
             BE = (abs(df['lead_eta'])<1.4442) & (abs(df['subl_eta'])>1.566)
@@ -128,13 +130,13 @@ class CombinedTF(BaseTF):
 
 class NaiveTF(BaseTF):
     
-        def __init__(self, isMC, years=None):
+        def __init__(self, isMC, git_tag, **kwargs):
             self.name = "NaiveTF"
-            super().__init__(isMC, years)
+            super().__init__(isMC, git_tag, **kwargs)
     
         def calculate_tf(self):
             for year in self.years:            
-                df = skim.load_skims(self.dType, year, "DY")[0]
+                df = out.load_outputs(self.dType, year, "DY", self.git_tag).events.df
     
                 ee_CR = df['lead_hasPixelSeed'] & df['subl_hasPixelSeed']
                 eg_CR = df['lead_hasPixelSeed'] != df['subl_hasPixelSeed']
@@ -160,13 +162,13 @@ class NaiveTF(BaseTF):
 
 class SimpleTF(BaseTF):
 
-    def __init__(self, isMC, years=None):
+    def __init__(self, isMC, git_tag, **kwargs):
         self.name = "SimpleTF"
-        super().__init__(isMC, years)
+        super().__init__(isMC, git_tag, **kwargs)
 
     def calculate_tf(self):
         for year in self.years:            
-            df = skim.load_skims(self.dType, year, "DY")[0]
+            df = out.load_outputs(self.dType, year, "DY")[0]
 
             ee_CR = df['lead_hasPixelSeed'] & df['subl_hasPixelSeed']
             eg_CR = df['lead_hasPixelSeed'] != df['subl_hasPixelSeed']

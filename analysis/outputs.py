@@ -45,7 +45,7 @@ def get_output_filename(dType, year, analysis_region, git_tag, extension, output
 
     return filepath
 
-def load_outputs(dType, era, analysis_region, git_tag=version.get_last_tag()):
+def load_outputs(dType, era, analysis_region, git_tag):
     return Outputs(dType, era, analysis_region, git_tag).load()
 
 class Outputs:
@@ -91,9 +91,13 @@ class Outputs:
             output_names = [output_names]
         
         for output_name in output_names:
+            self.outputs[output_name].scaled = True
             output_type = type(self.outputs[output_name])
             for year in self.years:
-                self.outputs[output_name] += output_type(self.dType, year, self.analysis_region).load(test=test)
+                self.outputs[output_name] += output_type(self.dType,
+                                                         year,
+                                                         self.analysis_region,
+                                                         self.git_tag).load(test=test)
             self.outputs[output_name].loaded = True
         
         return self
@@ -111,6 +115,7 @@ class Output:
         self.batch = batch
 
         self.loaded = False
+        self.scaled = False
 
     @property
     def filename(self):
@@ -121,8 +126,11 @@ class Output:
         return get_output_filename(
             self.dType, self.year, self.analysis_region, self.git_tag, self.extension, self.output_type, batch=batch, tag_only=tag_only)
     
-    def is_same_dataset(self, other):
-        return self.dType == other.dType and self.year == other.year and self.analysis_region == other.analysis_region
+    def can_add(self, other):
+        if self.dType != other.dType: return False
+        if self.analysis_region != other.analysis_region: return False
+        if not (self.scaled and other.scaled) and self.year != other.year: return False
+        return True
 
     def load(self, test=False):
         if not os.path.exists(self.filename):
@@ -145,7 +153,10 @@ class Output:
                 input("Press Enter to continue...")
             
             for batch_filename in batch_filenames:
-                self += type(self)(self.dType, self.year, self.analysis_region).load_from_file(batch_filename)
+                self += type(self)(self.dType,
+                                   self.year,
+                                   self.analysis_region,
+                                   self.git_tag).load_from_file(batch_filename)
 
             # Remove batch files
             if not test:
@@ -179,6 +190,15 @@ class Cutflow():
                 self.cutflow[cut] += count
         return self
     
+    def keys(self):
+        return self.cutflow.keys()
+
+    def values(self):
+        return self.cutflow.values()
+
+    def items(self):
+        return self.cutflow.items()
+
     def __getitem__(self, cut):
         if cut not in self.cutflow:
             self.cutflow[cut] = 0
@@ -213,7 +233,7 @@ class Cutflows(Output):
                 print(f"  {cut}: {count}")
 
     def __add__(self, other):
-        assert self.is_same_dataset(other), "Cannot add Cutflows objects with different datasets"
+        assert self.can_add(other), "Cannot add Cutflows objects with different datasets"
         for dataset, cutflow in other.info.items():
             if dataset not in self.info:
                 self.info[dataset] = cutflow
@@ -241,6 +261,19 @@ class Cutflows(Output):
 
         return self
 
+    def scale_mc(self):
+        cutflow = Cutflow(self.dType, self.year, self.analysis_region)
+        for dataset, info in self.info.items():
+            total_mc = info['total_mc']
+            for cut, counts in info.items():
+                if cut == 'total_mc': continue
+                cutflow[cut] += counts*1000*si.lumis[self.year]/total_mc
+            cutflow['total_mc'] += total_mc
+
+        self.scaled = True
+        self.info['weighted_sum'] = cutflow
+        return self
+
 class Events(Output):
 
     def __init__(self, dType, year, analysis_region, git_tag, batch=None):
@@ -252,7 +285,7 @@ class Events(Output):
         self.extension = 'parquet'
     
     def __add__(self, other):
-        assert self.is_same_dataset(other), "Cannot add Events objects with different datasets"
+        assert self.can_add(other), "Cannot add Events objects with different datasets"
         if self.df is None:
             self.df = other.df
         else:
@@ -290,6 +323,7 @@ class Events(Output):
         # Remove dataset column
         self.df.drop(columns=['dataset'], inplace=True)
 
+        self.scaled = True
         return self
 
 class GenElectrons(Events):
@@ -308,7 +342,7 @@ class Histograms(Output):
         self.extension = 'pkl'
     
     def __add__(self, other):
-        assert self.is_same_dataset(other), "Cannot add Histograms objects with different datasets"
+        assert self.can_add(other), "Cannot add Histograms objects with different datasets"
         for hist in other.histograms:
             if hist not in self.histograms:
                 self.histograms[hist] = other.histograms[hist]
@@ -349,3 +383,6 @@ class Histograms(Output):
         
             # Sum over datasets
             self.histograms[histname] = hist.sum('dataset')
+        
+        self.scaled = True
+        return self
