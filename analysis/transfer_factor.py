@@ -26,14 +26,14 @@ def compare_tfs(tf1, tf2):
 
 def round_tf(tf, tf_err, n=3):
     # Find the number of decimal places to the first two significant figures
-    ndec = 0
-    for i, s in enumerate(str(tf_err).split('.')[1]):
-        if s != '0':
-            ndec = i
-            break
+    # ndec = 0
+    # for i, s in enumerate(str(tf_err).split('.')[1]):
+    #     if s != '0':
+    #         ndec = i
+    #         break
     
-    tf = round(tf, ndec+n)
-    tf_err = round(tf_err, ndec+n)
+    # tf = round(tf, ndec+n)
+    # tf_err = round(tf_err, ndec+n)
 
     return tf, tf_err
 

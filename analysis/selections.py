@@ -48,6 +48,27 @@ photonWPs = { 'loose' : {'barrel': { 'hadTowOverEM'       : 0.04596,
                                    'pfNeutralIsoRhoCorr': (2.718, 0.0117, 2.3e-5),
                                    'pfGammaIsoRhoCorr'  : (3.867, 0.0037)}}}
 
+def pass_photon_ID(
+    photonWP,
+    pt,
+    region,
+    hadTowOverEM,
+    sigmaIetaIeta,
+    pfChargedIsoRhoCorr,
+    pfNeutralIsoRhoCorr,
+    pfGammaIsoRhoCorr):
+    
+    c = photonWPs[photonWP][region]
+    if hadTowOverEM > c['hadTowOverEM']: return False
+    if sigmaIetaIeta > c['sigmaIetaIeta']: return False
+    if pfChargedIsoRhoCorr > c['pfChargedIsoRhoCorr']: return False
+
+    p = c['pfNeutralIsoRhoCorr']
+    if pfNeutralIsoRhoCorr > (p[0] + p[1]*pt + p[2]*pt*pt) : return False
+    p = c['pfGammaIsoRhoCorr']
+    if pfGammaIsoRhoCorr > (p[0] + p[1]*pt): return False
+
+    return True
 
 class EventSelection:
 
@@ -131,17 +152,22 @@ class EventSelection:
             if "PixelSeedVeto" in s and tree.Photons_hasPixelSeed[i]: continue
             if photon.Pt() < 80 or abs(photon.Eta()) > 2.4: continue
 
-            pt = photon.Pt()
-            region = 'barrel' if tree.Photons_isEB[i] else 'endcap'
-            c = photonWPs[s['PhotonWP']][region]
-            if tree.Photons_hadTowOverEM[i] > c['hadTowOverEM']: continue
-            if tree.Photons_sigmaIetaIeta[i] > c['sigmaIetaIeta']: continue
-            if tree.Photons_pfChargedIsoRhoCorr[i] > c['pfChargedIsoRhoCorr']: continue
+            id_vars = [
+                photon.Pt(),
+                'barrel' if tree.Photons_isEB[i] else 'endcap',
+                tree.Photons_hadTowOverEM[i],
+                tree.Photons_sigmaIetaIeta[i],
+                tree.Photons_pfChargedIsoRhoCorr[i],
+                tree.Photons_pfNeutralIsoRhoCorr[i],
+                tree.Photons_pfGammaIsoRhoCorr[i],
+            ]
 
-            p = c['pfNeutralIsoRhoCorr']
-            if tree.Photons_pfNeutralIsoRhoCorr[i] > (p[0] + p[1]*pt + p[2]*pt*pt) : continue
-            p = c['pfGammaIsoRhoCorr']
-            if tree.Photons_pfGammaIsoRhoCorr[i] > (p[0] + p[1]*pt): continue
+            if pass_photon_ID('loose', *id_vars):
+                candidate['photonWP'] = 'loose'
+            elif pass_photon_ID('medium', *id_vars):
+                candidate['photonWP'] = 'medium'
+            else:
+                continue
 
             candidate['index'] = i
             candidate['4vec'] = photon

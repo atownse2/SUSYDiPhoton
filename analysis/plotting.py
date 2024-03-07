@@ -281,6 +281,29 @@ def plot_residuals(hist, model, labels=None, title=None, setlogy=False, ylabel=N
     if save_as is not None:
         plt.savefig(save_as)
 
+def plot1d_ratio(h1,h2, ax, label=None, color='black'):
+    
+    bin_edges = h1.axes[0].edges
+    bins = [(bin_edges[i], bin_edges[i+1]) for i in range(len(bin_edges)-1)]
+
+    y1 = h1.values()
+    y2 = h2.values()
+    v1 = h1.variances()
+    v2 = h2.variances()
+
+    zero_mask = y2 > 0
+    y1 = y1[zero_mask]
+    y2 = y2[zero_mask]
+    v1 = v1[zero_mask]
+    v2 = v2[zero_mask]
+    bins = [ b for i, b in enumerate(bins) if zero_mask[i]]
+    bin_edges = [lower for lower, upper in bins] + [bins[-1][1]]
+
+    ratio = y1/y2
+    ratio_variance = v1*(1/y2)**2 + v2*(2*y1/y2**2)**2
+
+    hep.histplot((ratio, bin_edges), yerr=np.sqrt(ratio_variance), ax=ax, label=label)
+
 def plot_analysis_bins(
         h,
         label: str,

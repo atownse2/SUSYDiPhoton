@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 top_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-plot_dir = f"{top_dir}/outputs/plots/egtf/fits/"
+plot_dir = f"{top_dir}/outputs/plots/egtf/fits"
 if not os.path.exists(plot_dir):
     os.makedirs(plot_dir)
 
@@ -46,7 +46,7 @@ class CrystalBall:
         std = np.std(data)
 
         self.mean = ROOT.RooRealVar('mean', 'mean', mode, 0.5*mode, 1.5*mode)
-        self.sigma = ROOT.RooRealVar('sigma', 'sigma', 0.8*std, 0.2*std, 1.3*std)
+        self.sigma = ROOT.RooRealVar('sigma', 'sigma', 0.8*std, 0.1*std, 1.3*std)
         self.alphaL = ROOT.RooRealVar('alphaL', 'alphaL', 1, min_val, 50)
         self.nL = ROOT.RooRealVar('nL', 'nL', 2, min_val, 100)
         self.alphaR = ROOT.RooRealVar('alphaR', 'alphaR', 1, min_val, 50)
