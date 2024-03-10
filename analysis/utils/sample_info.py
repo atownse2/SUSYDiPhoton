@@ -39,6 +39,7 @@ phases = {
 
 dType_tags_include_all = {
   'data' : ['Run201'],
+  'signal': ['SMS'],
   'DYJetsToLL' : ['DYJetsToLL_M-50_HT'],
   'WGJets' : ['WGJets_MonoPhoton_PtG'],
   'TTGJets' : ['TTGJets'],
@@ -46,17 +47,19 @@ dType_tags_include_all = {
 
 dType_tags_include_any = {
   'data' : ["EGamma", "DoubleEG"],
+  'signal': ['T5Wg', 'T6Wg'],
   'DYJetsToLL' : [""],
   'WGJets' : [""],
   'TTGJets' : [""],
   }
 
 dType_tags_exclude_any = {'data' : [],
+                      'signal': [],
                       'DYJetsToLL' : [],
                       'WGJets' : [],
                       'TTGJets' : [],}
 
-dTypes = ['data', 'DYJetsToLL', 'WGJets', 'TTGJets']
+all_dTypes = ['data', 'signal', 'DYJetsToLL', 'WGJets', 'TTGJets']
 
 sample_subsets = {
   "DYJetsToLL" : ["DYJetsToLL_M-50_HT-100to200", 
@@ -69,7 +72,8 @@ sample_subsets = {
   "WGJets": ["WGJets_MonoPhoton_PtG-40to130", 
              "WGJets_MonoPhoton_PtG-130"],
   "TTGJets": "TTGJets",
-  "data": "data"}
+  "data": "data",
+  "signal": ["SMS-T5Wg", "SMS-T6Wg"],}
 
 trigger_names = {
   "2016" : 'HLT_DoublePhoton60_v',
@@ -127,7 +131,7 @@ def tag_filename(dType, filename, years=years):
     return False
 
 def get_dType(filename):
-  for dType in dTypes:
+  for dType in all_dTypes:
     if tag_filename(dType, filename):
       return dType
   raise ValueError('dType not found for {}'.format(filename))
@@ -153,12 +157,8 @@ def get_year(filename):
   raise ValueError('year not found for {}'.format(filename))
 
 def get_skim_version(filename):
-  all_skims = [f.replace("_filelist.txt","") for f in os.listdir(filelist_dir)]
-  for skim in all_skims:
-    if skim in filename:
-      return skim
-  
-  raise ValueError('skim version not found for {}'.format(filename))
+  assert(skim_dir in filename)
+  return filename.split('/')[-2]
 
 def cache_filedict(ntuple_version, file_cache,
                    redirector="ndcms.crc.nd.edu"):
@@ -250,10 +250,11 @@ def get_filelist(skim_version, remake=False, max_verbosity=0):
   return filelist
 ###
 
-def get_ntuple_filenames(dType, skim_version, years=years,
-                         batch=None, nbatches=None, 
-                         redirector="ndcms.crc.nd.edu",
-                         test=False):
+def get_ntuple_filenames(
+  dType, skim_version, years=years,
+  batch=None, nbatches=None,
+  redirector="ndcms.crc.nd.edu",
+  test=False):
   '''Get input filenames'''
   #redirector = "deepthought.crc.nd.edu"
   #redirector = "cmsxrootd.fnal.gov"
@@ -272,6 +273,7 @@ def get_ntuple_filenames(dType, skim_version, years=years,
     with open(tmp_file, "w") as f:
       f.write("\n".join(filenames))
 
+
   if batch is not None and nbatches is not None:
     file_batches = np.array_split(filenames, nbatches)
     filenames = file_batches[batch]
@@ -289,10 +291,10 @@ def characterize_skims(update_xrd=False, max_verbosity=0):
   tags = ["Skims", "TreeMaker","skims"]
   all_skims = xrd_dirlist(skim_dir) if update_xrd else [f.replace("_filelist.txt","") for f in os.listdir(filelist_dir)]
   skims = [ d for d in all_skims if any(tag in d for tag in tags) ]
-  df = pd.DataFrame(index=skims, columns=['{}_{}'.format(dType, year) for dType in dTypes for year in years])
+  df = pd.DataFrame(index=skims, columns=['{}_{}'.format(dType, year) for dType in all_dTypes for year in years])
   for skim in skims:
     filelist = get_filelist(skim, max_verbosity=max_verbosity)
-    for dType in dTypes:
+    for dType in all_dTypes:
       for year in years:
         df.loc[skim, '{}_{}'.format(dType, year)] = len([f for f in filelist if dType in f and year in f])
 
@@ -328,7 +330,7 @@ def get_trigger_index(dType, year, ntuple_version,
 
   if not cached:
     l.log("Trigger index not cached, caching now...", 1)
-    cache_trigger_indicies(ntuple_version, trigger_cache)
+    cache_trigger_indicies(ntuple_version, dTypes=[dType])
     with open(trigger_cache, 'r') as f:
       trigger_dict = json.load(f)
 
@@ -337,9 +339,10 @@ def get_trigger_index(dType, year, ntuple_version,
   return trigger_index
 
 def cache_trigger_indicies(ntuple_version,
+                            dTypes=all_dTypes,
                            tree_name = 'TreeMaker2/PreSelection'):
   
-  l.log('Caching trigger indicies for ntuple version {}'.format(ntuple_version), 1)
+  l.log('Caching trigger indicies for {} ntuple version {}'.format(dTypes, ntuple_version), 1)
 
   # Load cache if it exists
   if os.path.exists(trigger_cache):

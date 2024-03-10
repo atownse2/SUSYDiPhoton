@@ -49,7 +49,10 @@ def load_outputs(dType, era, analysis_region, git_tag):
     return Outputs(dType, era, analysis_region, git_tag).load()
 
 class Outputs:
-    def __init__(self, dType, era, analysis_region, git_tag, batch=None, test_load=False):
+    def __init__(
+        self,
+        dType, era, analysis_region, git_tag,
+        batch=None, test_load=False):
 
         self.dType = dType
         self.era = era
@@ -65,7 +68,8 @@ class Outputs:
             Events(dType, era, analysis_region, git_tag, batch=batch),]
 
         if dType != 'data':
-            self.types.append(GenElectrons(dType, era, analysis_region, git_tag, batch=batch))
+            self.types.append(
+                GenElectrons(dType, era, analysis_region, git_tag, batch=batch))
         
         self.outputs = { output.output_type: output for output in self.types}
     
@@ -102,9 +106,9 @@ class Outputs:
         
         return self
     
-    def save(self):
+    def save(self, verbosity=0):
         for output in self.outputs.values():
-            output.save()
+            output.save(verbosity=verbosity)
 
 class Output:
     def __init__(self, dType, year, analysis_region, git_tag, batch=None):
@@ -124,7 +128,13 @@ class Output:
     def get_filename(self, tag_only=False, batch=None):
         if batch is None: batch = self.batch
         return get_output_filename(
-            self.dType, self.year, self.analysis_region, self.git_tag, self.extension, self.output_type, batch=batch, tag_only=tag_only)
+            self.dType,
+            self.year,
+            self.analysis_region,
+            self.git_tag, self.extension,
+            self.output_type,
+            batch=batch,
+            tag_only=tag_only)
     
     def can_add(self, other):
         if self.dType != other.dType: return False
@@ -156,7 +166,8 @@ class Output:
                 self += type(self)(self.dType,
                                    self.year,
                                    self.analysis_region,
-                                   self.git_tag).load_from_file(batch_filename)
+                                   self.git_tag,
+                                   ).load_from_file(batch_filename)
 
             # Remove batch files
             if not test:
@@ -167,9 +178,9 @@ class Output:
             self.load_from_file(self.filename)
         
         self.loaded = True
-        self.save() # Save combined file
+        self.save(verbosity=verbosity) # Save combined file
 
-        if self.dType != 'data' and hasattr(self, 'scale_mc'):
+        if self.dType != 'data' and self.dType != 'signal' and hasattr(self, 'scale_mc'):
             self.scale_mc()
 
         return self
@@ -246,9 +257,10 @@ class Cutflows(Output):
             self.info[dataset] = Cutflow(self.dType, self.year, self.analysis_region)
         return self.info[dataset]
     
-    def save(self):
+    def save(self, verbosity=0):
         import json
         to_save = {dataset: cutflow.to_dict() for dataset, cutflow in self.info.items()}
+        if verbosity > 0: print(f"Saving {self.output_type} to {self.filename}")
         with open(self.filename, 'w') as f:
             json.dump(to_save, f, indent=4)
     
@@ -300,7 +312,8 @@ class Events(Output):
         
         return self
 
-    def save(self):
+    def save(self, verbosity=0):
+        if verbosity > 0: print(f"Saving {self.output_type} to {self.filename}")
         self.df.to_parquet(self.filename)
     
     def load_from_file(self, filename):
@@ -355,8 +368,9 @@ class Histograms(Output):
     def __setitem__(self, histname, hist):
         self.histograms[histname] = hist
 
-    def save(self):
+    def save(self, verbosity=0):
         import pickle
+        if verbosity > 0: print(f"Saving {self.output_type} to {self.filename}")
         with open(self.filename, 'wb') as f:
             pickle.dump(self.histograms, f)
 
