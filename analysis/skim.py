@@ -77,15 +77,6 @@ def submit_skims(
             if test or test_batch:
                 return
 
-class TaskConfig:
-    def __init__(self, dType, analysis_region, year, git_tag, batch, nbatches, verbosity):
-        self.dType = dType
-        self.analysis_region = analysis_region
-        self.year = year
-        self.git_tag = git_tag
-        self.batch = batch
-        self.nbatches = nbatches
-        self.verbosity = verbosity
 
 class SkimTuples:
 
@@ -97,7 +88,6 @@ class SkimTuples:
         
         l.set_max_verbosity(verbosity)
 
-        self.task_config = TaskConfig()
         self.dType = dType
         self.analysis_region = analysis_region
         self.year = year
