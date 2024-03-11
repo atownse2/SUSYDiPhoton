@@ -74,10 +74,17 @@ class Outputs:
         self.outputs = { output.output_type: output for output in self.types}
     
     def __getattr__(self, name):
-        if name in self.outputs:
-            if not self.outputs[name].loaded and self.load_instance:
-                self.load(lazy=False, test=self.test_load, output_names=name)
-            return self.outputs[name]
+
+        for output_type, output in self.outputs.items():
+            if name == output_type:
+                if not output.loaded and self.load_instance:
+                    self.load(lazy=False, test=self.test_load, output_names=output_type)
+                return output
+            elif hasattr(output, name):
+                if getattr(output, name) is None:
+                    self.load(lazy=False, test=self.test_load, output_names=output_type)
+                return getattr(output, name)
+        return self.__getattribute__(name)
 
     def __add__(self, other):
         for output in self.outputs.values():

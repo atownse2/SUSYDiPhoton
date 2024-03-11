@@ -1,10 +1,8 @@
 import os
 import sys
+import importlib
 
 import concurrent.futures
-
-from ROOT import TFile
-from ROOT.TMath import Sqrt, Cos
 
 top_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(top_dir)
@@ -17,6 +15,20 @@ from analysis.utils import condor
 from analysis import selections
 from analysis import outputs as out
 
+class LazyImport:
+    def __init__(self, module_name):
+        self.module_name = module_name
+        self.module = None
+
+    def __getattr__(self, name):
+        if self.module is None:
+            self.module = importlib.import_module(self.module_name)
+        return getattr(self.module, name)
+
+ROOT = LazyImport("ROOT")
+TFile = None
+Sqrt = None
+Cos = None
 
 l = logger.Logger()
 
@@ -105,6 +117,14 @@ class SkimTuples:
             return getattr(self, name)
 
     def run(self):
+
+        # Load ROOT
+        global TFile, Sqrt, Cos
+
+        TFile = ROOT.TFile
+        Sqrt = ROOT.TMath.Sqrt
+        Cos = ROOT.TMath.Cos
+    
         self.outputs = out.Outputs(
             self.dType,
             self.year,
@@ -130,7 +150,6 @@ class SkimTuples:
         self.outputs.save(verbosity=self.verbosity)
 
     def process_file(self, filename):
-
         entries = []
         if self.isMC:
             genelectrons = []
@@ -260,13 +279,15 @@ class SkimTuples:
                 outputs['genelectrons'] = genelectrons
             return outputs
 
-        except:
+        except Exception as e:
             l.log(f"Could not open file {filename}", 0)
+            l.log(e, 0)
+            # print failure
             return
 
     def process_files(self, filenames):
-        # Run multithreaded
 
+        # Multithreaded
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(self.process_file, filenames)
         

@@ -138,6 +138,13 @@ def get_dType(filename):
 
 def get_subset(filename):
   dType = get_dType(filename)
+  if dType == 'signal':
+    match = re.search(r'(T[56]Wg)_m(\d+\.0)d(\d+\.0)', filename)
+    if match:
+      return "{}_{}_{}".format(match.group(1), int(float(match.group(2))), int(float(match.group(3))))
+    else:
+      raise ValueError('subset not found for {}'.format(filename))
+
   if isinstance(sample_subsets[dType], str): return sample_subsets[dType]
   for subset in sample_subsets[dType]:
     if subset in filename:
