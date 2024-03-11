@@ -45,8 +45,8 @@ def get_output_filename(dType, year, analysis_region, git_tag, extension, output
 
     return filepath
 
-def load_outputs(dType, era, analysis_region, git_tag, test_load=False, lazy=True):
-    return Outputs(dType, era, analysis_region, git_tag).load(lazy=lazy, test=test_load)
+def load_outputs(dType, era, analysis_region, git_tag, test_load=False, lazy=True, verbosity=0):
+    return Outputs(dType, era, analysis_region, git_tag).load(lazy=lazy, test=test_load, verbosity=verbosity)
 
 class Outputs:
     def __init__(
@@ -84,7 +84,7 @@ class Outputs:
             output += other.outputs[output.output_type]
         return self
 
-    def load(self, lazy=True, output_names=None, test=False):
+    def load(self, lazy=True, output_names=None, test=False, verbosity=0):
         if lazy:
             self.load_instance = True
             return self
@@ -101,7 +101,7 @@ class Outputs:
                 self.outputs[output_name] += output_type(self.dType,
                                                          year,
                                                          self.analysis_region,
-                                                         self.git_tag).load(test=test)
+                                                         self.git_tag).load(test=test, verbosity=verbosity)
             self.outputs[output_name].loaded = True
         
         return self
@@ -142,7 +142,9 @@ class Output:
         if not (self.scaled and other.scaled) and self.year != other.year: return False
         return True
 
-    def load(self, test=False):
+    def load(self, test=False, verbosity=0):
+        if verbosity>=1:
+            print(f"Loading {self.output_type} for {self.dType} {self.year} {self.analysis_region} {self.git_tag}")
         if not os.path.exists(self.filename):
             # Look for batch files
             batch_dir = os.path.dirname(self.get_filename(batch=0))
@@ -160,7 +162,6 @@ class Output:
             # Check for missing batch files
             if len(batch_filenames) != skim.job_splittings[self.dType]:
                 print(f"Warning: {len(batch_filenames)} batch files found for {file_tag}, expected {skim.job_splittings[self.dType]}")
-                input("Press Enter to continue...")
             
             for batch_filename in batch_filenames:
                 self += type(self)(self.dType,
@@ -183,6 +184,7 @@ class Output:
         if self.dType != 'data' and self.dType != 'signal' and hasattr(self, 'scale_mc'):
             self.scale_mc()
 
+        if verbosity>=1:print(f"------------------------")
         return self
 
 class Cutflow():

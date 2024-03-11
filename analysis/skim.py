@@ -130,6 +130,7 @@ class SkimTuples:
         self.outputs.save(verbosity=self.verbosity)
 
     def process_file(self, filename):
+
         entries = []
         if self.isMC:
             genelectrons = []
@@ -151,116 +152,117 @@ class SkimTuples:
             l.log("Opening File " + filename)
             f = TFile.Open(filename)
             t = f.Get('TreeMaker2/PreSelection')
+
+            if self.isMC:
+                counter = f.Get('tcounter')
+                cutflow['total_mc'] += counter.GetEntries()
+
+            l.log("Starting Event Loop",2)
+            for event in t:
+
+                if self.isMC:
+                    w = t.CrossSection*t.puWeight
+                else:
+                    w = 1
+
+                if self.isMC:
+                    # Gen electrons
+                    for iPar, genPar in enumerate(t.GenParticles):
+                        if abs(t.GenParticles_PdgId[iPar]) != 11: continue
+                        for iPho, pho in enumerate(t.Photons):
+                            if selections.deltaR(pho, genPar) < 0.1:
+                                genelectrons.append({
+                                    'genPt': genPar.Pt(),
+                                    'genEta': genPar.Eta(),
+                                    'genPhi': genPar.Phi(),
+                                    'hasPixelSeed': t.Photons_hasPixelSeed[iPho],
+                                    'met': t.HardMETPt,
+                                    'bdt': t.mva_BDT,
+                                    'nvtx': t.NVtx,
+                                    'weight': w,
+                                })
+
+                E = selections.EventSelection(t, trigger_index, self.analysis_region, cutflow)
+
+                if not E.pass_selection: continue
+
+                eg = E.candidates
+
+                # If MinMt branch is not present, calculate it
+                if hasattr(t, 'MinMt'):
+                    min_mT = t.MinMt
+                else:
+                    # Calculate min mT
+                    mT = lambda pt, pt_miss, phi, phi_miss: Sqrt(2*pt*pt_miss*(1-Cos(phi-phi_miss)))
+                    if len(t.JetsAUX) == 0:
+                        min_mT = None
+                    else:
+                        min_mT = min([mT(j.Pt(), t.HardMETPt, j.Phi(), t.HardMETPhi) for j in t.JetsAUX])
+
+                entry = {
+                    'dataset': dataset,
+                    'lead_pt': eg[0]['4vec'].Pt(),
+                    'subl_pt': eg[1]['4vec'].Pt(),
+                    'lead_eta': eg[0]['4vec'].Eta(),
+                    'subl_eta': eg[1]['4vec'].Eta(),
+                    'lead_photonWP': eg[0]['photonWP'],
+                    'subl_photonWP': eg[1]['photonWP'],
+                    'lead_hasPixelSeed': eg[0]['xseed'],
+                    'subl_hasPixelSeed': eg[1]['xseed'],
+                    "invariant_mass": (eg[0]['4vec'] + eg[1]['4vec']).M(),
+                    'min_mt': min_mT,
+                    'nvtx': t.NVtx,
+                    'met': t.HardMETPt,
+                    'bdt': t.mva_BDT,
+                    'weight': w,
+                    }
+                
+                if self.dType == 'signal':
+                    entry['GluinoMass'] = t.SignalParameters[0]
+                    entry['NeutralinoMass'] = t.SignalParameters[1]
+
+                # Can add gen info to entry here
+                if self.isMC:
+                    selections.genMatching(t, eg)
+                    entry['lead_genMatch'] = eg[0]['genMatch']['name']
+                    entry['subl_genMatch'] = eg[1]['genMatch']['name']
+
+                    # Loop over gen electrons, match to photons, and record if they have a pixel seed or not
+                    n_gen_electrons = 0
+                    n_gen_electrons_matched_electron = 0
+                    n_gen_electrons_matched_photon = 0
+                    for iPar, genPar in enumerate(t.GenParticles):
+                        if abs(t.GenParticles_PdgId[iPar]) != 11: continue
+                        n_gen_electrons += 1
+                        pho_match = None
+                        for iPho, pho in enumerate(t.Photons):
+                            if selections.deltaR(pho, genPar) < 0.1:
+                                pho_match = iPho
+                                break
+                        
+                        if pho_match is not None:
+                            if t.Photons_hasPixelSeed[pho_match]:
+                                n_gen_electrons_matched_electron += 1
+                            else:
+                                n_gen_electrons_matched_photon += 1
+                    
+                    entry['n_gen_electrons'] = n_gen_electrons
+                    entry['n_gen_electrons_matched_electron'] = n_gen_electrons_matched_electron
+                    entry['n_gen_electrons_matched_photon'] = n_gen_electrons_matched_photon
+
+                entries.append(entry)
+
+            # After event loop
+            f.Close()
+
+            outputs = {'events': entries}
+            if self.isMC:
+                outputs['genelectrons'] = genelectrons
+            return outputs
+
         except:
             l.log(f"Could not open file {filename}", 0)
             return
-
-        if self.isMC:
-            counter = f.Get('tcounter')
-            cutflow['total_mc'] += counter.GetEntries()
-
-        l.log("Starting Event Loop",2)
-        for event in t:
-
-            if self.isMC:
-                w = t.CrossSection*t.puWeight
-            else:
-                w = 1
-
-            if self.isMC:
-                # Gen electrons
-                for iPar, genPar in enumerate(t.GenParticles):
-                    if abs(t.GenParticles_PdgId[iPar]) != 11: continue
-                    for iPho, pho in enumerate(t.Photons):
-                        if selections.deltaR(pho, genPar) < 0.1:
-                            genelectrons.append({
-                                'genPt': genPar.Pt(),
-                                'genEta': genPar.Eta(),
-                                'genPhi': genPar.Phi(),
-                                'hasPixelSeed': t.Photons_hasPixelSeed[iPho],
-                                'met': t.HardMETPt,
-                                'bdt': t.mva_BDT,
-                                'nvtx': t.NVtx,
-                                'weight': w,
-                            })
-
-            E = selections.EventSelection(t, trigger_index, self.analysis_region, cutflow)
-
-            if not E.pass_selection: continue
-
-            eg = E.candidates
-
-            # If MinMt branch is not present, calculate it
-            if hasattr(t, 'MinMt'):
-                min_mT = t.MinMt
-            else:
-                # Calculate min mT
-                mT = lambda pt, pt_miss, phi, phi_miss: Sqrt(2*pt*pt_miss*(1-Cos(phi-phi_miss)))
-                if len(t.JetsAUX) == 0:
-                    min_mT = None
-                else:
-                    min_mT = min([mT(j.Pt(), t.HardMETPt, j.Phi(), t.HardMETPhi) for j in t.JetsAUX])
-
-            entry = {
-                'dataset': dataset,
-                'lead_pt': eg[0]['4vec'].Pt(),
-                'subl_pt': eg[1]['4vec'].Pt(),
-                'lead_eta': eg[0]['4vec'].Eta(),
-                'subl_eta': eg[1]['4vec'].Eta(),
-                'lead_photonWP': eg[0]['photonWP'],
-                'subl_photonWP': eg[1]['photonWP'],
-                'lead_hasPixelSeed': eg[0]['xseed'],
-                'subl_hasPixelSeed': eg[1]['xseed'],
-                "invariant_mass": (eg[0]['4vec'] + eg[1]['4vec']).M(),
-                'min_mt': min_mT,
-                'nvtx': t.NVtx,
-                'met': t.HardMETPt,
-                'bdt': t.mva_BDT,
-                'weight': w,
-                }
-            
-            if self.dType == 'signal':
-                entry['SignalParameters'] =  [par for par in t.SignalParameters]
-
-            # Can add gen info to entry here
-            if self.isMC:
-                selections.genMatching(t, eg)
-                entry['lead_genMatch'] = eg[0]['genMatch']['name']
-                entry['subl_genMatch'] = eg[1]['genMatch']['name']
-
-                # Loop over gen electrons, match to photons, and record if they have a pixel seed or not
-                n_gen_electrons = 0
-                n_gen_electrons_matched_electron = 0
-                n_gen_electrons_matched_photon = 0
-                for iPar, genPar in enumerate(t.GenParticles):
-                    if abs(t.GenParticles_PdgId[iPar]) != 11: continue
-                    n_gen_electrons += 1
-                    pho_match = None
-                    for iPho, pho in enumerate(t.Photons):
-                        if selections.deltaR(pho, genPar) < 0.1:
-                            pho_match = iPho
-                            break
-                    
-                    if pho_match is not None:
-                        if t.Photons_hasPixelSeed[pho_match]:
-                            n_gen_electrons_matched_electron += 1
-                        else:
-                            n_gen_electrons_matched_photon += 1
-                
-                entry['n_gen_electrons'] = n_gen_electrons
-                entry['n_gen_electrons_matched_electron'] = n_gen_electrons_matched_electron
-                entry['n_gen_electrons_matched_photon'] = n_gen_electrons_matched_photon
-
-            entries.append(entry)
-
-        # After event loop
-        f.Close()
-
-        outputs = {'events': entries}
-        if self.isMC:
-            outputs['genelectrons'] = genelectrons
-
-        return outputs
 
     def process_files(self, filenames):
         # Run multithreaded
@@ -269,6 +271,7 @@ class SkimTuples:
             results = executor.map(self.process_file, filenames)
         
         for result in results:
+            if result is None: continue
             self.outputs.events.fill(result['events'])
             if self.isMC:
                 self.outputs.genelectrons.fill(result['genelectrons'])
