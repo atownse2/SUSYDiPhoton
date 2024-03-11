@@ -45,8 +45,8 @@ def get_output_filename(dType, year, analysis_region, git_tag, extension, output
 
     return filepath
 
-def load_outputs(dType, era, analysis_region, git_tag):
-    return Outputs(dType, era, analysis_region, git_tag).load()
+def load_outputs(dType, era, analysis_region, git_tag, test_load=False, lazy=True):
+    return Outputs(dType, era, analysis_region, git_tag).load(lazy=lazy, test=test_load)
 
 class Outputs:
     def __init__(

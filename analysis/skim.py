@@ -77,7 +77,6 @@ def submit_skims(
             if test or test_batch:
                 return
 
-
 class SkimTuples:
 
     def __init__(self,
@@ -148,9 +147,13 @@ class SkimTuples:
         l.log(f"Dataset: {dataset} Year: {year} isMC: {self.isMC} Trigger Index: {trigger_index}", 2)
 
         ### Open file
-        l.log("Opening File " + filename)
-        f = TFile.Open(filename)
-        t = f.Get('TreeMaker2/PreSelection')
+        try:
+            l.log("Opening File " + filename)
+            f = TFile.Open(filename)
+            t = f.Get('TreeMaker2/PreSelection')
+        except:
+            l.log(f"Could not open file {filename}", 0)
+            return
 
         if self.isMC:
             counter = f.Get('tcounter')
@@ -270,7 +273,6 @@ class SkimTuples:
             if self.isMC:
                 self.outputs.genelectrons.fill(result['genelectrons'])
 
-
 if __name__ == "__main__":
     import time
 
@@ -306,7 +308,7 @@ if __name__ == "__main__":
             raise ValueError("Must specify year when not submitting batches")
         
         t1 = time.time()
-        # t = TaskConfig(args.dType, args.analysis_region, args.year, args.git_tag, args.batch, args.nbatches, args.verbosity)
+
         SkimTuples(
             args.dType,
             args.year,
