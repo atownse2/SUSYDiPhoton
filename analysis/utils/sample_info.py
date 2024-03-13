@@ -5,7 +5,7 @@ import re
 import json
 
 import sys
-top_dir = "/afs/crc.nd.edu/user/a/atownse2/Public/SUSYDiPhoton"
+top_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(top_dir)
 
 from analysis.utils.logger import Logger

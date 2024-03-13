@@ -6,10 +6,10 @@ import pandas as pd
 
 from analysis.utils import sample_info as si
 from analysis.utils import logger
-from analysis.utils import condor
-from analysis.utils import version
+# from analysis.utils import condor
+# from analysis.utils import version
 
-from analysis import skim
+# from analysis import skim
 
 l = logger.Logger()
 
@@ -164,11 +164,11 @@ class Output:
                 return None
 
             # Check the condor logs for errors
-            condor.check_logs(file_tag)
+            # condor.check_logs(file_tag)
 
             # Check for missing batch files
-            if len(batch_filenames) != skim.job_splittings[self.dType]:
-                print(f"Warning: {len(batch_filenames)} batch files found for {file_tag}, expected {skim.job_splittings[self.dType]}")
+            # if len(batch_filenames) != skim.job_splittings[self.dType]:
+            #     print(f"Warning: {len(batch_filenames)} batch files found for {file_tag}, expected {skim.job_splittings[self.dType]}")
             
             for batch_filename in batch_filenames:
                 self += type(self)(self.dType,

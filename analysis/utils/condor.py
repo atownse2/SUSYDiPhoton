@@ -4,21 +4,21 @@ import re
 
 condor_dir = f"/scratch365/atownse2/SUSYDiPhoton/condor"
 
-def submit_batch(executable, arguments, job_name):
+def submit_batch(executable, arguments, job_name, njobs=1):
     import htcondor
     skim_events = htcondor.Submit({
         "executable": executable,
-        "arguments": arguments,
-        "output": f"{condor_dir}/out/{job_name}.out",
-        "error" : f"{condor_dir}/err/{job_name}.err",
-        "log"   : f"{condor_dir}/log/{job_name}.log",              
+        "arguments": arguments ,
+        "output": f"{condor_dir}/out/{job_name}_$(ProcId).out",
+        "error" : f"{condor_dir}/err/{job_name}_$(ProcId).err",
+        "log"   : f"{condor_dir}/log/{job_name}_$(ProcId).log",              
         "request_cpus": "1",
         "request_memory": "512MB",
         "request_disk": "256MB",
     })
-    print(f"Submitting job {job_name}")
+    print(f"Submitting {njobs} jobs to condor with name {job_name}.")
     schedd = htcondor.Schedd()
-    submit_result = schedd.submit(skim_events)
+    submit_result = schedd.submit(skim_events, count=njobs)
 
 def submit_local(executable, arguments, job_name):
     command = f'{executable} {arguments}'

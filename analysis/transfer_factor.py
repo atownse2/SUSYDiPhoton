@@ -10,12 +10,15 @@ sys.path.append(top_dir)
 
 import analysis.fitting as fit
 from analysis import outputs as out
+from analysis import histograms as hgm
 
 
 tf_cache = f"{top_dir}/cache/tf"
 if not os.path.exists(tf_cache):
     os.makedirs(tf_cache)
 
+BARREL_ETA = 1.4442
+ENDCAP_ETA = 1.566
 
 def compare_tfs(tf1, tf2):
     assert tf1.years == tf2.years
@@ -37,6 +40,8 @@ def round_tf(tf, tf_err, n=3):
 
     return tf, tf_err
 
+def prediction_error(tf, tf_err, weights):
+    pass
 
 class BaseTF:
     def __init__(self, isMC, git_tag, years=None, remake=False):
@@ -50,8 +55,8 @@ class BaseTF:
         if isMC:
             self.years.remove("2018")
 
-        self.info = {year: None for year in self.years}
         self.cache = f"{tf_cache}/{self.name}_{self.dType}.json"
+        self.info = {}
 
         self.init_tf(remake)
 
@@ -64,12 +69,14 @@ class BaseTF:
 
     @property
     def tf(self):
+        if self.info == {}: raise ValueError("Transfer factors have not been calculated yet")
         if self.isMC:
             self.info["2018"] = self.info["2017"]
         return {year: info["tf"] for year, info in self.info.items()}
     
     @property
     def tf_err(self):
+        if self.info == {}: raise ValueError("Transfer factors have not been calculated yet")
         if self.isMC:
             self.info["2018"] = self.info["2017"]
         return {year: info["tf_err"] for year, info in self.info.items()}
@@ -82,11 +89,115 @@ class BaseTF:
         with open(self.cache, 'w') as f:
             json.dump(self.info, f, indent=4)
 
-class CombinedTF(BaseTF):
+class SimpleTF(BaseTF):
 
     def __init__(self, isMC, git_tag, **kwargs):
-        self.name = "CombinedTF"
+        self.name = "SimpleTF"
         super().__init__(isMC, git_tag, **kwargs)
+
+    def apply_tf(self, eg, year, histFunc):
+        if self.info == {}: raise ValueError("Transfer factors have not been calculated yet")
+        assert all(eg['lead_hasPixelSeed'] != eg['subl_hasPixelSeed'])
+        if self.isMC:
+            self.info["2018"] = self.info["2017"]
+
+        h = hgm.SimpleHistogram().from_hist(histFunc(eg))
+        h.scale(self.info[year]["tf"], self.info[year]["tf_err"])
+
+        return h
+
+    def calculate_tf(self):
+        for year in self.years:            
+            df = out.load_outputs(self.dType, year, "DY")[0]
+
+            ee_CR = df['lead_hasPixelSeed'] & df['subl_hasPixelSeed']
+            eg_CR = df['lead_hasPixelSeed'] != df['subl_hasPixelSeed']
+
+            ee_fit = fit.fit(df[ee_CR], f'{self.dType} ee CR {year}', 'binned')
+            eg_fit = fit.fit(df[eg_CR], f'{self.dType} eg CR {year}', 'binned')
+
+            tf = eg_fit['nsig']/(2*ee_fit['nsig'])
+            tf_err = np.sqrt( (eg_fit['nsig_err']/(2*ee_fit['nsig']))**2 + (ee_fit['nsig_err']*eg_fit['nsig']/(2*ee_fit['nsig']**2))**2 )
+
+            tf, tf_err = round_tf(tf, tf_err)
+
+            self.info[year] = {"tf": tf, "tf_err": tf_err}
+
+class EtaBinnedTF(BaseTF):
+    
+        def __init__(self, isMC, git_tag, **kwargs):
+            self.name = "EtaBinnedTF"
+            super().__init__(isMC, git_tag, **kwargs)
+    
+        def apply_tf(self, eg, year, histFunc):
+            if self.info == {}: raise ValueError("Transfer factors have not been calculated yet")
+            assert all(eg['lead_hasPixelSeed'] != eg['subl_hasPixelSeed'])
+            if self.isMC:
+                self.info["2018"] = self.info["2017"]
+    
+            ele_in_barrel = ((abs(eg['lead_eta'])<BARREL_ETA) & eg['lead_hasPixelSeed']) | \
+                            ((abs(eg['subl_eta'])<BARREL_ETA) & eg['subl_hasPixelSeed'])
+            ele_in_endcap = ((abs(eg['lead_eta'])>ENDCAP_ETA) & eg['lead_hasPixelSeed']) | \
+                            ((abs(eg['subl_eta'])>ENDCAP_ETA) & eg['subl_hasPixelSeed'])
+
+            h_b = hgm.SimpleHistogram().from_hist(histFunc(eg[ele_in_barrel]))
+            h_b.scale(self.info[year]["tf"]['barrel'], self.info[year]["tf_err"]['barrel'])
+    
+            h_e = hgm.SimpleHistogram().from_hist(histFunc(eg[ele_in_endcap]))
+            h_e.scale(self.info[year]["tf"]['barrel'], self.info[year]["tf_err"]['barrel'])
+    
+            return h_b + h_e
+
+        def calculate_tf(self):
+            for year in self.years:            
+                df = out.load_outputs(self.dType, year, "DY", self.git_tag).events.df
+    
+                ee_CR = df['lead_hasPixelSeed'] & df['subl_hasPixelSeed']
+                eg_CR = df['lead_hasPixelSeed'] != df['subl_hasPixelSeed']
+    
+                # Provide estimates for the transfer factor using
+                same_regions = {
+                    "barrel" : (abs(df['lead_eta'])<BARREL_ETA) & (abs(df['subl_eta'])<BARREL_ETA),
+                    "endcap" : (abs(df['lead_eta'])>ENDCAP_ETA) & (abs(df['subl_eta'])>ENDCAP_ETA)
+                }
+
+                self.info[year] = {"tf": {}, "tf_err": {}}
+                for region, cut in same_regions.items():
+                    ee_fit = fit.fit(df[ee_CR & cut], f'{self.dType} ee CR {year} {region}', 'binned')
+                    eg_fit = fit.fit(df[eg_CR & cut], f'{self.dType} eg CR {year} {region}', 'binned')
+    
+                    tf = eg_fit['nsig']/(2*ee_fit['nsig'])
+                    tf_err = np.sqrt( (eg_fit['nsig_err']/(2*ee_fit['nsig']))**2 + (ee_fit['nsig_err']*eg_fit['nsig']/(2*ee_fit['nsig']**2))**2 )
+    
+                    tf, tf_err = round_tf(tf, tf_err)
+
+                    self.info[year]["tf"][region] = tf
+                    self.info[year]["tf_err"][region] = tf_err
+
+class CombinedEtaBinnedTF(BaseTF):
+
+    def __init__(self, isMC, git_tag, **kwargs):
+        self.name = "CombinedEtaBinnedTF"
+        super().__init__(isMC, git_tag, **kwargs)
+
+    def apply_tf(self, eg, year, histFunc):
+        if self.info == {}: raise ValueError("Transfer factors have not been calculated yet")
+        assert all(eg['lead_hasPixelSeed'] != eg['subl_hasPixelSeed'])
+        if self.isMC:
+            self.info["2018"] = self.info["2017"]
+
+        ele_in_barrel = ((abs(eg['lead_eta'])<BARREL_ETA) & eg['lead_hasPixelSeed']) | \
+                        ((abs(eg['subl_eta'])<BARREL_ETA) & eg['subl_hasPixelSeed'])
+        ele_in_endcap = ((abs(eg['lead_eta'])>ENDCAP_ETA) & eg['lead_hasPixelSeed']) | \
+                        ((abs(eg['subl_eta'])>ENDCAP_ETA) & eg['subl_hasPixelSeed'])
+
+        h_b = hgm.SimpleHistogram().from_hist(histFunc(eg[ele_in_barrel]))
+        h_b.scale(self.info[year]["tf"]['barrel'], self.info[year]["tf_err"]['barrel'])
+
+        h_e = hgm.SimpleHistogram().from_hist(histFunc(eg[ele_in_endcap]))
+        h_e.scale(self.info[year]["tf"]['barrel'], self.info[year]["tf_err"]['barrel'])
+
+        return h_b + h_e
 
     def calculate_tf(self):
         for year in self.years:
@@ -94,10 +205,10 @@ class CombinedTF(BaseTF):
 
             df = out.load_outputs(self.dType, year, "DY", self.git_tag).events.df
 
-            BB = (abs(df['lead_eta'])<1.4442) & (abs(df['subl_eta'])<1.4442)
-            BE = (abs(df['lead_eta'])<1.4442) & (abs(df['subl_eta'])>1.566)
-            EB = (abs(df['lead_eta'])>1.566) & (abs(df['subl_eta'])<1.4442)
-            EE = (abs(df['lead_eta'])>1.566) & (abs(df['subl_eta'])>1.566)
+            BB = (abs(df['lead_eta'])<BARREL_ETA) & (abs(df['subl_eta'])<BARREL_ETA)
+            BE = (abs(df['lead_eta'])<BARREL_ETA) & (abs(df['subl_eta'])>ENDCAP_ETA)
+            EB = (abs(df['lead_eta'])>ENDCAP_ETA) & (abs(df['subl_eta'])<BARREL_ETA)
+            EE = (abs(df['lead_eta'])>ENDCAP_ETA) & (abs(df['subl_eta'])>ENDCAP_ETA)
 
             ee = df['lead_hasPixelSeed'] & df['subl_hasPixelSeed']
             eg = df['lead_hasPixelSeed'] & ~df['subl_hasPixelSeed']
@@ -127,58 +238,3 @@ class CombinedTF(BaseTF):
 
                 self.info[year]["tf"][region] = tf
                 self.info[year]["tf_err"][region] = tf_err
-
-class NaiveTF(BaseTF):
-    
-        def __init__(self, isMC, git_tag, **kwargs):
-            self.name = "NaiveTF"
-            super().__init__(isMC, git_tag, **kwargs)
-    
-        def calculate_tf(self):
-            for year in self.years:            
-                df = out.load_outputs(self.dType, year, "DY", self.git_tag).events.df
-    
-                ee_CR = df['lead_hasPixelSeed'] & df['subl_hasPixelSeed']
-                eg_CR = df['lead_hasPixelSeed'] != df['subl_hasPixelSeed']
-    
-                # Provide estimates for the transfer factor using
-                same_regions = {
-                    "BB" : (abs(df['lead_eta'])<1.4442) & (abs(df['subl_eta'])<1.4442),
-                    "EE" : (abs(df['lead_eta'])>1.566) & (abs(df['subl_eta'])>1.566)
-                }
-
-                self.info[year] = {"tf": {}, "tf_err": {}}
-                for region, cut in same_regions.items():
-                    ee_fit = fit.fit(df[ee_CR & cut], f'{self.dType} ee CR {year} {region}', 'binned')
-                    eg_fit = fit.fit(df[eg_CR & cut], f'{self.dType} eg CR {year} {region}', 'binned')
-    
-                    tf = eg_fit['nsig']/(2*ee_fit['nsig'])
-                    tf_err = np.sqrt( (eg_fit['nsig_err']/(2*ee_fit['nsig']))**2 + (ee_fit['nsig_err']*eg_fit['nsig']/(2*ee_fit['nsig']**2))**2 )
-    
-                    tf, tf_err = round_tf(tf, tf_err)
-
-                    self.info[year]["tf"][region] = tf
-                    self.info[year]["tf_err"][region] = tf_err
-
-class SimpleTF(BaseTF):
-
-    def __init__(self, isMC, git_tag, **kwargs):
-        self.name = "SimpleTF"
-        super().__init__(isMC, git_tag, **kwargs)
-
-    def calculate_tf(self):
-        for year in self.years:            
-            df = out.load_outputs(self.dType, year, "DY")[0]
-
-            ee_CR = df['lead_hasPixelSeed'] & df['subl_hasPixelSeed']
-            eg_CR = df['lead_hasPixelSeed'] != df['subl_hasPixelSeed']
-
-            ee_fit = fit.fit(df[ee_CR], f'{self.dType} ee CR {year}', 'binned')
-            eg_fit = fit.fit(df[eg_CR], f'{self.dType} eg CR {year}', 'binned')
-
-            tf = eg_fit['nsig']/(2*ee_fit['nsig'])
-            tf_err = np.sqrt( (eg_fit['nsig_err']/(2*ee_fit['nsig']))**2 + (ee_fit['nsig_err']*eg_fit['nsig']/(2*ee_fit['nsig']**2))**2 )
-
-            tf, tf_err = round_tf(tf, tf_err)
-
-            self.info[year] = {"tf": tf, "tf_err": tf_err}

@@ -313,6 +313,7 @@ def plot_analysis_bins(
         is_data=False,
         print_bdt_labels=True,
         year=None,
+        legend=True,
         cms_label='Work in Progress',
         save_as=None):
 
@@ -363,10 +364,11 @@ def plot_analysis_bins(
 
         ax.set_xlim(edges[0], edges[-1])
     
-    axs[0].legend(
-        fontsize=18,
-        loc='upper right',
-        bbox_to_anchor=(0.99, 0.99))
+    if legend:
+        axs[0].legend(
+            fontsize=18,
+            loc='upper right',
+            bbox_to_anchor=(0.9, 0.7))
 
     axs[0].set_ylabel(ylabel)
 
